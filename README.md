@@ -2,6 +2,11 @@
 
 # PLEASE WAIT, IT IS NOT FINISHED
 # 请先等待，它还没有完成
+# CrabUI文件夹中的是项目源码
+# CrabUIMPY文件夹中的是项目编译后的字节码，可以作为正常模块使用
+# apis、libs\oled、config等配置文件可以从CrabUI文件夹复制到CrabUIMPY文件夹中
+# 删除配置文件在CrabUIMPY文件夹中的对应mpy文件
+# 如性能要求较高，可以使用mpy-cross编译成mpy文件
 
 丝滑的ui框架，但是使用micropython
 
