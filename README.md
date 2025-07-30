@@ -1,5 +1,8 @@
 # CrabUI
 
+# PLEASE WAIT, IT IS NOT FINISHED
+# 请先等待，它还没有完成
+
 丝滑的ui框架，但是使用micropython
 
 ## 声明
