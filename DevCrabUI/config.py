@@ -1,7 +1,7 @@
-'''
+"""
 config file
 last edited: 2025.8.15
-'''
+"""
 
 # 目前的配置有点乱
 import math

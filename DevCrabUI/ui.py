@@ -1,12 +1,12 @@
-'''
+"""
 main file
 last edited: 2025.8.24
-'''
+"""
+from logging import Manager
 
 from .config import *
 from .libs import ufont, upbm, drawer, bufxor
 import utime
-from random import randint
 from machine import I2C, Pin, Timer, SPI, SoftI2C, SoftSPI
 import framebuf
 from micropython import const
@@ -33,7 +33,7 @@ class Pos:
 #     __slots__ = ('x', 'y', 'w', 'h', 'dx', 'dy', 'dw', 'dh', 'generator', 'last_time')
     def __init__(self, x=0, y=0, w=0, h=0):
         self.x, self.y, self.w, self.h = x, y, w, h
-        # 用于保存目标坐标([d]estination [pos(xywh)])
+        # 用于保存目标坐标(destination pos)
         self.dx, self.dy, self.dw, self.dh = x, y, w, h
         self.generator = None
         self.last_time = False
@@ -259,12 +259,12 @@ class Manager:
         func()
     
     # @timeit
-    def check_fps(self, n=False):
+    def check_fps(self, n=None):
         self.fps = self.count_fps
         self.count_fps = 0
     
     def startup(self):
-        '''startup 启动加载函数'''
+        """startup 启动加载函数"""
         dis = display
         if not show_startup_page:
             self.load()

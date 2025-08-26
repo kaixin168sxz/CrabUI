@@ -1,7 +1,7 @@
-'''
+"""
 icon display
 last edited: 2025.8.24
-'''
+"""
 
 import framebuf
 from ..config import icon_size
@@ -21,8 +21,6 @@ class PBMImage:
             # 从文件第二行获取图片长宽
             size = f.readline().replace(b'\n', b'').split(b' ')
             self.w, self.h = int(size[0]), int(size[1])
-#             if (self.w, self.h) != (icon_size, icon_size):
-#                 print(f'Illegal image size: {self.w}x{self.h}')
             # 文件其余内容为图像数据
             self.img_cache[filepath] = framebuf.FrameBuffer(bytearray(f.read()), self.w, self.h, framebuf.MONO_HLSB)
             

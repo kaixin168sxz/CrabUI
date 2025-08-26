@@ -1,19 +1,18 @@
-'''
+"""
 font display
 
 last edited: 2025.8.24
 MIT License
 Copyright (c) 2022 AntonVanke
 Copyright (c) 2025 kaixin168sxz
-'''
+"""
 
-import utime
 import struct
 import framebuf
 from ..config import font_size, font_path, half_font_size, display_h
 from micropython import const
 
-class _BMFont:
+class BMFont:
     def __init__(self, font=False, size=False):
         self.str_cache = {}
         # 载入字体文件
@@ -32,9 +31,9 @@ class _BMFont:
         self.font_size = font_size if size is False else size
         self.half_font_size = half_font_size if size is False else size//2
     
-    def blit_text(self, blit_func, x=0, y=0):
+    def blit_text(self, blit_func, string, x=0, y=0):
         x = x
-        for char in self.string:
+        for char in string:
             blit_func(framebuf.FrameBuffer(bytearray(list(self.get_bitmap(char))),
                                            self.font_size, self.font_size, framebuf.MONO_HLSB), x, y, 0)
             x += self.half_font_size if ord(char) < 128 else self.font_size
@@ -44,7 +43,6 @@ class _BMFont:
         blit_func(self.str_cache[string], x, y, 0)
     
     def init(self, string) -> int:
-        self.string = string
         w = 0
         for char in string:
             # 英文字符半格显示
@@ -52,7 +50,7 @@ class _BMFont:
         self.w = w
         buf = bytearray(max(((w + 7) // 8) * self.font_size, ((self.font_size + 7) // 8) * self.font_size))
         fbuf = framebuf.FrameBuffer(buf, max(w, self.font_size), self.font_size, framebuf.MONO_HLSB)
-        self.blit_text(fbuf.blit)
+        self.blit_text(fbuf.blit, string)
         self.str_cache[string] = fbuf
         del fbuf, buf
         return w
@@ -80,7 +78,6 @@ class _BMFont:
         return -1
 
     def get_bitmap(self, word: str) -> bytes:
-        global font_index
         """获取点阵图
 
         Args:
@@ -100,11 +97,11 @@ class _BMFont:
 
 bmf_cache = {}
 
-def BMFont(font_file=False, size=False):
+def bitmap_font(font_file=False, size=False):
     font_file = font_file if font_file else font_path
     size = size if size else font_size
     if font_file not in bmf_cache:
         bmf_cache[font_file] = {}
     if size not in bmf_cache[font_file]:
-        bmf_cache[font_file][size] = _BMFont(font_file, size)
+        bmf_cache[font_file][size] = BMFont(font_file, size)
     return bmf_cache[font_file][size]
