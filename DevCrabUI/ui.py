@@ -2,8 +2,6 @@
 main file
 last edited: 2025.8.24
 """
-from logging import Manager
-
 from .config import *
 from .libs import ufont, upbm, drawer, bufxor
 import utime
@@ -95,7 +93,7 @@ class Selector:
         self.drw(self.fbuf, pos.x-cam.x+out_gap, pos.y-cam.y+top_gap, pos.w, pos.h, 1, selector_fill)
 
     # @timeit
-    def select(self, child, scroll_page=False, update_cam=True):
+    def select(self, child, update_cam=True):
         pos: Pos = child.pos
         menu: ListMenu|IconMenu = manager.current_menu
         menu_type = menu.type
@@ -115,39 +113,31 @@ class Selector:
         self.selected = child
         menu.selected_id = self.selected.id
         menu.scrollbar.update_val()
-        if update_cam: menu.update_camera(scroll_page)
+        if update_cam: menu.update_camera()
     
     def up(self):
-        scroll_page = False
         child_id = self.selected.id
         menu = manager.current_menu
         last_id = manager.current_menu.count_children-1
         if child_id == 0:
             if not menu_loop: return
-            children = menu.children
-            display_length = display_w if menu.type == 'IconMenu' else display_h
-            scroll_page = children[last_id].pos.dy - children[child_id].pos.dy >= display_length
             child_id = last_id
         else:
             child_id -= 1
         
-        self.select(manager.current_menu.children[child_id], scroll_page)
+        self.select(manager.current_menu.children[child_id])
     
     def down(self):
-        scroll_page = False
         child_id = self.selected.id
         menu = manager.current_menu
         last_id = menu.count_children-1
         if child_id == last_id:
             if not menu_loop: return
-            children = menu.children
-            display_length = display_w if menu.type == 'IconMenu' else display_h
-            scroll_page = children[child_id].pos.dy - children[0].pos.dy >= display_length
             child_id = 0
         else:
             child_id += 1
 
-        self.select(manager.current_menu.children[child_id], scroll_page)
+        self.select(manager.current_menu.children[child_id])
 
 class ButtonEvent:
     def __init__(self, btn_pin, link, callback_on_pressed=False):
@@ -442,14 +432,14 @@ class ListMenu(BaseMenu):
         pass
     
     # @timeit
-    def update_camera(self, scroll_page=False):
+    def update_camera(self):
         pos = manager.selector.selected.pos
         cam = self.camera
         y = pos.dy
         yh = y + pos.h + list_space
         x = cam.x
         # 1是选择器的宽度
-        if scroll_page or y < cam.y:
+        if y < cam.y:
             cam.animation((x, y), camera_speed, only_xy=True, ease_func=camera_ease)
         elif yh > cam.y+cam.h:
             cam.animation((x, yh-dish_gap+1), camera_speed, only_xy=True, ease_func=camera_ease)
@@ -506,7 +496,7 @@ class IconMenu(BaseMenu):
         pos.dy = display_h - pos.h - icon_title_bottom
         pos.animation((pos.dx, pos.dy), only_xy=True, ease_func=icon_title_ease)
     
-    def update_camera(self, scroll_page=False):
+    def update_camera(self):
         pos = manager.selector.selected.pos
         cam = self.camera
         cam.animation((pos.dx-half_disw+pos.w//2, cam.y), camera_speed, only_xy=True, ease_func=camera_ease)
