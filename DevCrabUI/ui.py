@@ -2,6 +2,7 @@
 main file
 last edited: 2025.8.24
 """
+
 from .config import *
 from .libs import ufont, upbm, drawer, bufxor
 import utime
@@ -10,9 +11,8 @@ import framebuf
 from micropython import const
 import gc
 
-_print = print
-display = None
-manager = None
+if import_typing_files:
+    from libs.display import Display
 
 def timeit(f, *args, **kwargs):
     myname = str(f).split(' ')[1]
@@ -98,10 +98,10 @@ class Selector:
         menu: ListMenu|IconMenu = manager.current_menu
         menu_type = menu.type
         if menu_type == 'ListMenu':
-            cposw = 0
+            child_w = 0  # child pos w
             if hasattr(child, 'widget') and child.widget:
-                cposw = child.widget.pos.w+widget_gap*2
-            w = min(list_max_w-cposw, pos.w+list_selector_left_gap*2+1)
+                child_w = child.widget.pos.w+widget_gap*2
+            w = min(list_max_w-child_w, pos.w+list_selector_left_gap*2+1)
             # 1是选择器的宽度
             self.pos.animation((pos.dx, pos.dy, w, pos.h+list_selector_top_gap*2+1),
                                selector_speed, ease_func=selector_ease)
@@ -117,7 +117,6 @@ class Selector:
     
     def up(self):
         child_id = self.selected.id
-        menu = manager.current_menu
         last_id = manager.current_menu.count_children-1
         if child_id == 0:
             if not menu_loop: return
@@ -129,8 +128,7 @@ class Selector:
     
     def down(self):
         child_id = self.selected.id
-        menu = manager.current_menu
-        last_id = menu.count_children-1
+        last_id = manager.current_menu.count_children-1
         if child_id == last_id:
             if not menu_loop: return
             child_id = 0
@@ -293,7 +291,7 @@ class Manager:
         gc.collect()
     
     # @timeit
-    def page(self, menu: Menu, record_history=True):
+    def page(self, menu: "ListMenu" | "IconMenu", record_history=True):
         if self.starting_up:
             print('booting...')
             self.startup()
@@ -330,29 +328,29 @@ class Manager:
         dis.fill(0)
         self.current_menu.update()
         if not self.custom_page: self.selector.update()
-        dis.rect(0, 0, display_w, top_gap, 0, 1)
-        dis.rect(0, top_gap, out_gap, display_h, 0, 1)
-        dis.rect(right_mask_x, top_gap, out_gap, display_h, 0, 1)
+        dis.fill_rect(0, 0, display_w, top_gap, 0)
+        dis.fill_rect(0, top_gap, out_gap, display_h, 0)
+        dis.fill_rect(right_mask_x, top_gap, out_gap, display_h, 0)
         if selector_fill and not self.custom_page:
             bufxor.xor(dis.buffer, dis.buffer, self.selector.buf)
         if self.others:
             for i in self.others: i.update()
         if check_fps:
-            dis.rect(0, 0, 30, 8, 0, 1)
+            dis.fill_rect(0, 0, 30, 8, 0)
             dis.text(str(self.fps), 0, 0)
-        dis.show()       
+        dis.show()
 
 class XScrollBar:
     def __init__(self):
         self.pos = Pos()
-        self.drw = display.rect
+        self.drw = display.fill_rect
     
     def update(self):
         # out_gap is x pos
         # top_gap is y pos
         pos = self.pos
-        self.drw(out_gap, xscrollbar_mask_y, xscrollbar_w, xscrollbar_mask_h, 0, 1)
-        self.drw(out_gap, top_gap, pos.w, pos.h, 1, 1)
+        self.drw(out_gap, xscrollbar_mask_y, xscrollbar_w, xscrollbar_mask_h, 0)
+        self.drw(out_gap, top_gap, pos.w, pos.h, 1)
     
     def update_val(self):
         menu = manager.current_menu
@@ -366,7 +364,7 @@ class XScrollBar:
 class YScrollBar:
     def __init__(self):
         self.pos = Pos()
-        self.drw = display.rect
+        self.drw = display.fill_rect
         self.line = display.line
     
     def update(self):
@@ -374,10 +372,10 @@ class YScrollBar:
         # top_gap is y pos
         pos = self.pos
         
-        self.drw(yscrollbar_mask_x, top_gap, yscrollbar_mask_w, yscrollbar_h, 0, 1)
+        self.drw(yscrollbar_mask_x, top_gap, yscrollbar_mask_w, yscrollbar_h, 0)
         self.line(yscrollbar_line_x, top_gap, yscrollbar_line_x, yscrollbar_line_yh, 1)
         self.line(yscrollbar_x, yscrollbar_bottom_line_y, yscrollbar_line_xw, yscrollbar_bottom_line_y, 1)
-        self.drw(yscrollbar_x, top_gap, pos.w, pos.h, 1, 1)
+        self.drw(yscrollbar_x, top_gap, pos.w, pos.h, 1)
     
     # @timeit
     def update_val(self):
@@ -526,7 +524,6 @@ class TextDialog:
         self.pos = Pos()
         self.camera = Pos()  # 由Label调用，不起任何作用(但是不可删除)
         self.drw = drawer.list_selector  # 其实就是圆角矩形
-        self.rect = display.rect
         # TextDialog目前仅支持显示一个Label组件
         self.child = Label(self, text, append_list=False, offset_pos=False, load=False)
         self.closing = False
@@ -581,7 +578,7 @@ class TextDialog:
             self.appended = True
     
     # @timeit
-    def close(self, n=False):
+    def close(self, n=None):
         self.closing = True
         self.opened = False
         cpos = self.child.pos
@@ -607,7 +604,7 @@ class TextDialog:
         if self.child.pos.generator: self.child.pos.update()
         self.child.update()
         _xw = pos.x+pos.w
-        self.rect(_xw-2, pos.y-2, display_w-_xw+2, pos.h+4, 0, 1)
+        display.fill_rect(_xw-2, pos.y-2, display_w-_xw+2, pos.h+4, 0)
         self.drw(display, pos.x, pos.y, pos.w, pos.h, 1, 0)
 
 class BaseWidget:
@@ -620,10 +617,10 @@ class BaseWidget:
 
 class Label(BaseWidget):
     def __init__(self, parent, text=None, link=None, append_list: bool=True, offset_pos: bool=True,
-                 always_scroll: bool=False, scroll_w=False, try_scroll: bool=True, scroll_speed=False,
-                 load: bool=True, font=False, size=False):
-        ''' Label标签组件
-        Args:
+                 always_scroll: bool=False, scroll_w: int | bool=False, try_scroll: bool=True,
+                 scroll_speed: int | bool=False, load: bool=True, font: int | bool=False, size: int | bool=False):
+        """
+        Label标签组件
         parent(AnyWidget): 父组件
         text(str): 显示的内容
         link(callback): 单击后运行的函数
@@ -634,7 +631,7 @@ class Label(BaseWidget):
         try_scroll(bool): 是否开启文本滚动
         scroll_speed(int): 滚动速度(每秒偏移的像素)
         load(int): 是否自动将self添加到manager的启动加载列表 (Builtin)
-        '''
+        """
         super().__init__(parent)
         self.type = 'LabelWidget'
         self.font = ufont.BMFont(font, size)
@@ -688,14 +685,14 @@ class Label(BaseWidget):
         self.last_time = now
         if manager.selector.selected is self or self.always_scroll or self.xscroll:
             scr_w = self.scroll_w
-            _cposw = 0
+            _child_w = 0
             if self.widget:
-                _cposw = self.widget.pos.w+widget_gap
-                scr_w -= _cposw
+                _child_w = self.widget.pos.w+widget_gap
+                scr_w -= _child_w
             if _pos.w+out_gap > scr_w:
                 self.xscroll += self.scroll_speed
                 if manager.selector.selected is not self and abs(self.xscroll) < self.scroll_speed: self.xscroll = 0
-                elif self.xscroll > _pos.w: self.xscroll = -list_max_w+_cposw
+                elif self.xscroll > _pos.w: self.xscroll = -list_max_w+_child_w
 
     # @timeit
     def update(self):
@@ -712,7 +709,6 @@ class Icon(BaseWidget):
     def __init__(self, parent, filepath=None, title='', link=None, append_list: bool=True, offset_pos: bool=True):
         super().__init__(parent)
         self.type = 'IconWidget'
-#         pbm = upbm.PBMImage(display, filepath)
         self.pbm = upbm.PBMImg
         self.filepath = filepath
         self.link = link
@@ -755,17 +751,17 @@ class CheckBox(BaseWidget):
     def update(self):
         pos = self.pos
         x, y = manager.current_menu.offset_pos(pos.x, pos.y)
-        display.rect(x-widget_gap, y-5, disw_wgap-x, list_item_space, 0, 1)  # mask
-        display.rect(x, y, pos.w, pos.h, 1, 0)
-        if self.value: display.rect(x+2, y+2, pos.w-4, pos.h-4, 1, 1)
+        display.fill_rect(x-widget_gap, y-5, disw_wgap-x, list_item_space, 0)  # mask
+        display.rect(x, y, pos.w, pos.h, 1)
+        if self.value: display.fill_rect(x+2, y+2, pos.w-4, pos.h-4, 1)
     
     def widget_callback(self):
         self.value = not self.value
-        if callable(self.link_): self.link_(self.idx)
+        if callable(self.link_): self.link_(self.value)
 
 class ListSelector(BaseWidget):
-    def __init__(self, parent, range_list, default_idx=False, loop=False,
-                 link=None, change_link=None, flash_speed=False, base_x=False):
+    def __init__(self, parent, range_list, default_idx: int | bool=False, loop=False,
+                 link=None, change_link=None, flash_speed: int | bool=False, base_x=False):
         super().__init__(parent)
         if not range_list: raise IndexError('a ListSelector Widget should has one or more items')
         self.idx = 0 if default_idx is False else default_idx
@@ -778,7 +774,7 @@ class ListSelector(BaseWidget):
         self.up_ = change_link
         self.down_ = change_link
         self.last_time = None
-        self.flash_sataus = False
+        self.flash_status = False
         self.flash_speed = flash_speed
         if flash_speed is False:
             self.flash_speed = widget_flash_speed
@@ -790,16 +786,15 @@ class ListSelector(BaseWidget):
     
     def update(self):
         pos = self.pos
-        cam = self.camera
         x, y = manager.current_menu.offset_pos(pos.x, pos.y)
-        display.rect(x-widget_gap, y, pos.w+widget_gap_m2, list_item_space, 0, 1)
+        display.fill_rect(x-widget_gap, y, pos.w+widget_gap_m2, list_item_space, 0)
         now = utime.ticks_ms()
-        if not self.activate: self.flash_sataus = True  # 未被激活时不闪烁
+        if not self.activate: self.flash_status = True  # 未被激活时不闪烁
         elif utime.ticks_diff(now, self.last_time) > self.flash_speed:
-            self.flash_sataus = not self.flash_sataus
+            self.flash_status = not self.flash_status
             self.last_time = now
         
-        if self.flash_sataus:
+        if self.flash_status:
             self.child.update()
     
     def init(self):
@@ -917,8 +912,12 @@ class Page:
             if child.pos.generator: child.pos.update()
             child.update()
 
-def Item(parent, *args, **kws):
+def item(parent, *args, **kws) -> None | Label | Icon:
     if isinstance(parent, ListMenu): return Label(parent, *args, **kws)
     elif isinstance(parent, IconMenu): return Icon(parent, *args, **kws)
     else: print('[WARNING] Item: Unknown menu type.')
+    return None
 
+_print = print
+display: Display
+manager: Manager

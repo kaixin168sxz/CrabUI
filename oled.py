@@ -1,8 +1,8 @@
-'''
+"""
 MicroPython SSD1306 OLED driver, I2C and SPI interfaces
 
 last edited: 2025.8.3
-'''
+"""
 
 from micropython import const
 import framebuf
