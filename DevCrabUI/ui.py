@@ -12,7 +12,7 @@ from micropython import const
 import gc
 
 if import_typing_files:
-    from libs.display import Display
+    from .libs.display import Display
 
 def timeit(f, *args, **kwargs):
     myname = str(f).split(' ')[1]
