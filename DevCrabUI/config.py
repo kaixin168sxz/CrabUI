@@ -11,7 +11,7 @@ from micropython import const
 # 使用const后，值不可修改
 
 debug = const(True)
-import_typing_files = const(True)
+import_typing_files = const(False)
 
 # pin config
 # 引脚配置

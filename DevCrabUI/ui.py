@@ -13,6 +13,8 @@ import gc
 
 if import_typing_files:
     from .libs.display import Display
+else:
+    Display = None
 
 def timeit(f, *args, **kwargs):
     myname = str(f).split(' ')[1]
