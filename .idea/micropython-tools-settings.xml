@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="MicroPythonTools">
+    <option name="increaseBaudrateForFileTransfers" value="false" />
+    <option name="increasedFileTransferBaudrate" value="115200" />
+    <option name="pluginEnabled" value="true" />
+    <option name="portName" value="/dev/cu.usbserial-0001" />
+  </component>
+</project>

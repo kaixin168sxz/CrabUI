@@ -1,0 +1,10 @@
+<component name="libraryTable">
+  <library name="MicroPythonToolsStubs" type="python">
+    <CLASSES>
+      <root url="file://$APPLICATION_PLUGINS_DIR$/micropython-tools-jetbrains/stubs/micropython-esp32-stubs_1.25.0" />
+      <root url="file://$APPLICATION_PLUGINS_DIR$/micropython-tools-jetbrains/stubs/micropython-esp32-stubs_1.25.0/stdlib" />
+    </CLASSES>
+    <JAVADOC />
+    <SOURCES />
+  </library>
+</component>
