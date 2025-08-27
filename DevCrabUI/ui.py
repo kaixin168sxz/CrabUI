@@ -1,6 +1,6 @@
 """
 main file
-last edited: 2025.8.24
+last edited: 2025.8.27
 """
 
 from .config import *
@@ -9,14 +9,14 @@ import utime
 from machine import I2C, Pin, Timer, SPI, SoftI2C, SoftSPI
 import framebuf
 from micropython import const
-import gc
+from gc import collect
 
 # 判断环境, micropython无法导入pyi
 try:
     from .libs.display import Display
 except ImportError:
     Display = None
-    gc.collect()
+    collect()
 
 def timeit(f, *_args, **_kwargs):
     myname = str(f).split(' ')[1]
@@ -95,7 +95,7 @@ class Selector:
     # @timeit
     def select(self, child, update_cam=True):
         pos: Pos = child.pos
-        menu: ListMenu|IconMenu = manager.current_menu
+        menu: "ListMenu" | "IconMenu" = manager.current_menu
         menu_type = menu.type
         if menu_type == 'ListMenu':
             child_w = 0  # child pos w
@@ -138,27 +138,28 @@ class Selector:
         self.select(manager.current_menu.children[child_id])
 
 class ButtonEvent:
-    def __init__(self, btn_pin, link, callback_on_pressed=False):
-        self.btn = Pin(btn_pin, Pin.IN, Pin.PULL_UP)
-        self.press = False
-        self.link = link
-        self.callback_on_pressed = callback_on_pressed
+    def __init__(self):
+        self.event_dict = {}
+
+    def add(self, btn_pin, link, callback_on_pressed=False):
+        self.event_dict[btn_pin] = [Pin(btn_pin, Pin.IN, Pin.PULL_UP), False, link, callback_on_pressed]
     
     def update(self):
-        if self.btn.value():
-            if not self.press: return
-            self.press = False
-            if not self.callback_on_pressed: self.link()
-        else:
-            if self.press: return
-            self.press = True
-            if self.callback_on_pressed: self.link()
+        for btn_data in self.event_dict.values():
+            if btn_data[0].value():
+                if not btn_data[1]: return
+                btn_data[1] = False
+                if not btn_data[3]: btn_data[2]()
+            else:
+                if btn_data[1]: return
+                btn_data[1] = True
+                if btn_data[3]: btn_data[2]()
 
 class Manager:
     def __init__(self, driver=None, dis=None):
         global manager, display
         manager = self
-        if not (driver or dis): raise ValueError('lost display or display_driver')
+        if not (driver or dis): raise ValueError('lost display and display_driver')
         if dis: display = dis
         else:
             print('using driver')
@@ -176,7 +177,7 @@ class Manager:
                     spi = SoftSPI(mosi=Pin(display_mosi), miso=Pin(display_miso), sck=Pin(display_sck), baudrate=spi_freq)
                 display = driver.DisplaySPI(spi, Pin(display_dc), Pin(display_res), Pin(display_cs), display_w, display_h)
                 del spi
-            gc.collect()
+            collect()
         self.display = display
         self.selector = Selector()
         self.starting_up = True
@@ -190,10 +191,16 @@ class Manager:
         self.current_menu = None
         self.icon_menu_dashline = _BuiltinXDashLine()
 
-        self.btn_up_event = ButtonEvent(pin_up, lambda: self.btn_pressed(self.up))
-        self.btn_down_event = ButtonEvent(pin_down, lambda: self.btn_pressed(self.down))
-        self.btn_yes_event = ButtonEvent(pin_yes, lambda: self.btn_pressed(self.yes))
-        self.btn_back_event = ButtonEvent(pin_back, lambda: self.btn_pressed(self.back))
+        # self.btn_up_event = ButtonEvent(pin_up, lambda: self.btn_pressed(self.up))
+        # self.btn_down_event = ButtonEvent(pin_down, lambda: self.btn_pressed(self.down))
+        # self.btn_yes_event = ButtonEvent(pin_yes, lambda: self.btn_pressed(self.yes))
+        # self.btn_back_event = ButtonEvent(pin_back, lambda: self.btn_pressed(self.back))
+
+        self.btn_event = ButtonEvent()
+        self.btn_event.add(pin_up, lambda: self.btn_pressed(self.up))
+        self.btn_event.add(pin_down, lambda: self.btn_pressed(self.down))
+        self.btn_event.add(pin_yes, lambda: self.btn_pressed(self.yes))
+        self.btn_event.add(pin_back, lambda: self.btn_pressed(self.back))
         
         if check_fps:
             Timer(0, period=1000, callback=self.check_fps)
@@ -280,7 +287,7 @@ class Manager:
             else:
                 self.starting_up = False     # logo已经回到屏幕外
         del text
-        gc.collect()
+        collect()
     
     # @timeit
     def load(self):
@@ -288,7 +295,7 @@ class Manager:
         for _ in range(len(load_list)):
             load_list[0].init()
             self.load_list.pop(0)
-        gc.collect()
+        collect()
     
     # @timeit
     def page(self, menu: "ListMenu" | "IconMenu" | "Page", record_history=True):
@@ -320,10 +327,7 @@ class Manager:
     def update(self, *_args):
         if not self.display_on: return
         self.count_fps += 1
-        self.btn_up_event.update()
-        self.btn_down_event.update()
-        self.btn_yes_event.update()
-        self.btn_back_event.update()
+        self.btn_event.update()
         dis = display
         dis.fill(0)
         self.current_menu.update()
@@ -880,7 +884,7 @@ class _BuiltinXDashLine:
             x = to_x
             color = not color
         del x, to_x, color
-        gc.collect()
+        collect()
 
 class CustomWidget:
     # no parent widget
