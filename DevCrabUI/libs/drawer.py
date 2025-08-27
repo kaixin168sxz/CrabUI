@@ -1,12 +1,24 @@
 """
 draw more shapes
 
-last edited: 2025.8.3
+last edited: 2025.8.27
 """
 
 from ..config import icon_selector_length, icon_selector_gap
 
 def round_rect(fbuf, x, y, w, h, c=1, f=0):
+    """
+    绘制圆角矩形
+
+    Args:
+        fbuf: 帧缓冲区对象
+        x: 矩形左上角x坐标
+        y: 矩形左上角y坐标
+        w: 矩形宽度
+        h: 矩形高度
+        c: 颜色值
+        f: 是否填充矩形
+    """
     x, y, w, h = int(x), int(y), int(w), int(h)
     line = fbuf.line
     if f:
@@ -20,6 +32,18 @@ def round_rect(fbuf, x, y, w, h, c=1, f=0):
         line(x+1, y+h, x+w-2, y+h, c)
 
 def icon_selector(fbuf, x, y, w, h, c=1, _f=0):
+    """
+    绘制图标选择器（带装饰角的矩形框）
+
+    Args:
+        fbuf: 帧缓冲区对象
+        x: 矩形左上角x坐标
+        y: 矩形左上角y坐标
+        w: 矩形宽度
+        h: 矩形高度
+        c: 颜色值
+        _f: 未使用参数
+    """
     x, y, w, h = int(x), int(y), int(w), int(h)
 
     length = icon_selector_length
