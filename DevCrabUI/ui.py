@@ -4,19 +4,13 @@ last edited: 2025.8.24
 """
 
 from .config import *
-from .libs import ufont, upbm, drawer, bufxor
+from .libs import ufont, upbm, drawer
+import bufxor
 import utime
 from machine import I2C, Pin, Timer, SPI, SoftI2C, SoftSPI
 import framebuf
 from micropython import const
 import gc
-
-# 判断环境, micropython无法导入pyi
-try:
-    from .libs.display import Display
-except ImportError:
-    Display = None
-    gc.collect()
 
 def timeit(f, *_args, **_kwargs):
     myname = str(f).split(' ')[1]
@@ -918,5 +912,5 @@ def item(parent, *args, **kws) -> "None" | "Label" | "Icon":
     else: print('[WARNING] Item: Unknown menu type.')
     return None
 
-display: Display
+display: None
 manager: Manager
