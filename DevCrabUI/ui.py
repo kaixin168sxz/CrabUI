@@ -4,40 +4,13 @@ last edited: 2025.8.27
 """
 
 from .config import *
-from .libs import ufont, upbm, drawer, bufxor
+from .libs import ufont, upbm, drawer
+import bufxor
 import utime
 from machine import I2C, Pin, Timer, SPI, SoftI2C, SoftSPI
 import framebuf
 from micropython import const
 from gc import collect
-
-# 判断环境, micropython无法导入pyi
-try:
-    from .libs.display import Display
-except ImportError:
-    Display = None
-    collect()
-
-def timeit(f, *_args, **_kwargs):
-    """
-    装饰器函数，用于测量函数执行时间
-
-    Args:
-        f: 要测量的函数
-        *_args: 传递给函数的位置参数
-        **_kwargs: 传递给函数的关键字参数
-
-    Returns:
-        包装后的函数，执行原函数并打印执行时间
-    """
-    myname = str(f).split(' ')[1]
-    def new_func(*_args, **_kwargs):
-        t = utime.ticks_us()
-        result = f(*_args, **_kwargs)
-        delta = utime.ticks_diff(utime.ticks_us(), t)
-        print('{}  {:6.3f}ms'.format(myname, delta/1000))
-        return result
-    return new_func
 
 class Pos:
     """
@@ -1301,5 +1274,5 @@ def item(parent, *args, **kws) -> "None" | "Label" | "Icon":
     else: print('[WARNING] Item: Unknown menu type.')
     return None
 
-display: Display
+display: None
 manager: Manager
