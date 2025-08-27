@@ -1,4 +1,4 @@
-import DevCrabUI as ui
+import CrabUI as ui
 import oled
 import gc
 from machine import freq

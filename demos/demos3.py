@@ -1,4 +1,4 @@
-import DevCrabUI as ui
+import CrabUI as ui
 import oled
 
 manager = ui.Manager(oled)
