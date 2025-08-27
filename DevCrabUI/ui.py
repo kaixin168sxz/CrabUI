@@ -16,21 +16,17 @@ if import_typing_files:
 else:
     Display = None
 
-def timeit(f, *args, **kwargs):
+def timeit(f, *_args, **_kwargs):
     myname = str(f).split(' ')[1]
-    def new_func(*args, **kwargs):
+    def new_func(*_args, **_kwargs):
         t = utime.ticks_us()
-        result = f(*args, **kwargs)
+        result = f(*_args, **_kwargs)
         delta = utime.ticks_diff(utime.ticks_us(), t)
         print('{}  {:6.3f}ms'.format(myname, delta/1000))
         return result
     return new_func
 
-def print(*args, **kws):
-    if debug: _print(*args, **kws)
-
 class Pos:
-#     __slots__ = ('x', 'y', 'w', 'h', 'dx', 'dy', 'dw', 'dh', 'generator', 'last_time')
     def __init__(self, x=0, y=0, w=0, h=0):
         self.x, self.y, self.w, self.h = x, y, w, h
         # 用于保存目标坐标(destination pos)
@@ -249,7 +245,7 @@ class Manager:
         func()
     
     # @timeit
-    def check_fps(self, n=None):
+    def check_fps(self, _timer=None):
         self.fps = self.count_fps
         self.count_fps = 0
     
@@ -284,7 +280,7 @@ class Manager:
         del text
         gc.collect()
     
-    @timeit
+    # @timeit
     def load(self):
         load_list = self.load_list
         for _ in range(len(load_list)):
@@ -293,7 +289,7 @@ class Manager:
         gc.collect()
     
     # @timeit
-    def page(self, menu: "ListMenu" | "IconMenu", record_history=True):
+    def page(self, menu: "ListMenu" | "IconMenu" | "Page", record_history=True):
         if self.starting_up:
             print('booting...')
             self.startup()
@@ -319,7 +315,7 @@ class Manager:
         selector.select(menu.children[menu.selected_id], update_cam=True)
     
     # @timeit
-    def update(self, *args):
+    def update(self, *_args):
         if not self.display_on: return
         self.count_fps += 1
         self.btn_up_event.update()
@@ -580,7 +576,7 @@ class TextDialog:
             self.appended = True
     
     # @timeit
-    def close(self, n=None):
+    def close(self, _timer=None):
         self.closing = True
         self.opened = False
         cpos = self.child.pos
@@ -920,6 +916,5 @@ def item(parent, *args, **kws) -> None | Label | Icon:
     else: print('[WARNING] Item: Unknown menu type.')
     return None
 
-_print = print
 display: Display
 manager: Manager

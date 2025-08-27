@@ -19,7 +19,7 @@ def list_selector(fbuf, x, y, w, h, c=1, f=0):
         line(x+w-1, y+1, x+w-1, y+h-1, c)
         line(x+1, y+h, x+w-2, y+h, c)
 
-def icon_selector(fbuf, x, y, w, h, c=1, f=0):
+def icon_selector(fbuf, x, y, w, h, c=1, _f=0):
     x, y, w, h = int(x), int(y), int(w), int(h)
 
     length = icon_selector_length
