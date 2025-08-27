@@ -11,10 +11,12 @@ import framebuf
 from micropython import const
 import gc
 
-if import_typing_files:
+# 判断环境, micropython无法导入pyi
+try:
     from .libs.display import Display
-else:
+except ImportError:
     Display = None
+    gc.collect()
 
 def timeit(f, *_args, **_kwargs):
     myname = str(f).split(' ')[1]
@@ -910,7 +912,7 @@ class Page:
             if child.pos.generator: child.pos.update()
             child.update()
 
-def item(parent, *args, **kws) -> None | Label | Icon:
+def item(parent, *args, **kws) -> "None" | "Label" | "Icon":
     if isinstance(parent, ListMenu): return Label(parent, *args, **kws)
     elif isinstance(parent, IconMenu): return Icon(parent, *args, **kws)
     else: print('[WARNING] Item: Unknown menu type.')

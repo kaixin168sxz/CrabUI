@@ -63,5 +63,5 @@ nn.pos.dx = 40
 manager.page(root)
 while True:
     manager.update()
-#     gc.collect()
-#     print(gc.mem_alloc())
+    gc.collect()
+    print(gc.mem_alloc())
