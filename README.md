@@ -10,4 +10,4 @@
 
 ---
 
-# [Wiki](https://bgithub.xyz/kaixin168sxz/CrabUI/wiki)
+# [Wiki](https://github.com/kaixin168sxz/CrabUI/wiki)
