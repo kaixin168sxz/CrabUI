@@ -6,7 +6,7 @@ last edited: 2025.8.3
 
 from ..config import icon_selector_length, icon_selector_gap
 
-def list_selector(fbuf, x, y, w, h, c=1, f=0):
+def round_rect(fbuf, x, y, w, h, c=1, f=0):
     x, y, w, h = int(x), int(y), int(w), int(h)
     line = fbuf.line
     if f:
