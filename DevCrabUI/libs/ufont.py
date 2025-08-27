@@ -13,7 +13,17 @@ from ..config import font_size, font_path, half_font_size, display_h
 from micropython import const
 
 class BMFont:
+    """
+    点阵字体类，用于显示BMFont格式的字体
+    """
     def __init__(self, font=False, size=False):
+        """
+        初始化BMFont字体
+
+        Args:
+            font: 字体文件路径
+            size: 字体大小
+        """
         self.str_cache = {}
         # 载入字体文件
         self.font = open(font if font else font_path, "rb")
@@ -26,12 +36,21 @@ class BMFont:
         # 用来定位字体数据位置
         self.bitmap_size = const(self.bmf_info[8])
         del self.bmf_info
-        
+
         self.w = 0
         self.font_size = font_size if size is False else size
         self.half_font_size = half_font_size if size is False else size//2
-    
+
     def blit_text(self, blit_func, string, x=0, y=0):
+        """
+        绘制文本到指定位置
+
+        Args:
+            blit_func: 绘制函数
+            string: 要绘制的字符串
+            x: x坐标
+            y: y坐标
+        """
         x = x
         for char in string:
             blit_func(framebuf.FrameBuffer(bytearray(list(self.get_bitmap(char))),
@@ -39,10 +58,28 @@ class BMFont:
             x += self.half_font_size if ord(char) < 128 else self.font_size
 
     def text(self, blit_func, string, x, y):
+        """
+        显示缓存的文本
+
+        Args:
+            blit_func: 绘制函数
+            string: 要显示的字符串
+            x: x坐标
+            y: y坐标
+        """
         if y > display_h: return
         blit_func(self.str_cache[string], x, y, 0)
-    
+
     def init(self, string) -> int:
+        """
+        初始化字符串，创建缓存
+
+        Args:
+            string: 要初始化的字符串
+
+        Returns:
+            int: 字符串宽度
+        """
         w = 0
         for char in string:
             # 英文字符半格显示
@@ -54,7 +91,7 @@ class BMFont:
         self.str_cache[string] = fbuf
         del fbuf, buf
         return w
-    
+
     def _get_index(self, word: str) -> int:
         """
         获取索引
@@ -87,7 +124,7 @@ class BMFont:
             bytes 字符点阵
         """
         index = self._get_index(word)
-        
+
         if index == -1:
             return b'\xff\xff\xff\xff\xff\xff\xff\xff\xf0\x0f\xcf\xf3\xcf\xf3\xff\xf3\xff\xcf\xff?\xff?\xff\xff\xff' \
                    b'?\xff?\xff\xff\xff\xff'
@@ -98,6 +135,16 @@ class BMFont:
 bmf_cache = {}
 
 def bitmap_font(font_file=False, size=False):
+    """
+    获取点阵字体实例
+
+    Args:
+        font_file: 字体文件路径
+        size: 字体大小
+
+    Returns:
+        BMFont: 字体实例
+    """
     font_file = font_file if font_file else font_path
     size = size if size else font_size
     if font_file not in bmf_cache:

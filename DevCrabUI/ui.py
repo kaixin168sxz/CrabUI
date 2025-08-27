@@ -4,26 +4,86 @@ last edited: 2025.8.27
 """
 
 from .config import *
-from .libs import ufont, upbm, drawer
-import bufxor
+from .libs import ufont, upbm, drawer, bufxor
 import utime
 from machine import I2C, Pin, Timer, SPI, SoftI2C, SoftSPI
 import framebuf
 from micropython import const
 from gc import collect
 
+# 判断环境, micropython无法导入pyi
+try:
+    from .libs.display import Display
+except ImportError:
+    Display = None
+    collect()
+
+def timeit(f, *_args, **_kwargs):
+    """
+    装饰器函数，用于测量函数执行时间
+
+    Args:
+        f: 要测量的函数
+        *_args: 传递给函数的位置参数
+        **_kwargs: 传递给函数的关键字参数
+
+    Returns:
+        包装后的函数，执行原函数并打印执行时间
+    """
+    myname = str(f).split(' ')[1]
+    def new_func(*_args, **_kwargs):
+        t = utime.ticks_us()
+        result = f(*_args, **_kwargs)
+        delta = utime.ticks_diff(utime.ticks_us(), t)
+        print('{}  {:6.3f}ms'.format(myname, delta/1000))
+        return result
+    return new_func
+
 class Pos:
+    """
+    位置类，用于管理组件的位置和动画
+    """
     def __init__(self, x=0, y=0, w=0, h=0):
+        """
+        初始化位置对象
+
+        Args:
+            x: x坐标
+            y: y坐标
+            w: 宽度
+            h: 高度
+        """
         self.x, self.y, self.w, self.h = x, y, w, h
         # 用于保存目标坐标(destination pos)
         self.dx, self.dy, self.dw, self.dh = x, y, w, h
         self.generator = None
         self.last_time = False
-    
+
     def animation(self, pos: tuple, num_frames=None, only_xy=False, ease_func=None):
+        """
+        设置位置动画
+
+        Args:
+            pos: 目标位置元组 (x, y, w, h)
+            num_frames: 动画帧数
+            only_xy: 是否只动画x,y坐标
+            ease_func: 缓动函数
+        """
         self.generator = self._animation_generator(pos, num_frames, only_xy, ease_func)
-    
+
     def _animation_generator(self, pos: tuple, num_frames=None, only_xy=False, ease_func=None):
+        """
+        位置动画生成器
+
+        Args:
+            pos: 目标位置元组
+            num_frames: 动画帧数
+            only_xy: 是否只动画x,y坐标
+            ease_func: 缓动函数
+
+        Yields:
+            每一帧的位置信息
+        """
         ease_func = ease_func if ease_func else default_ease
         if num_frames is None: num_frames = default_speed
         x, y, w, h = self.x, self.y, self.w, self.h
@@ -38,26 +98,37 @@ class Pos:
             yield [int(x+dx*eased), int(y+dy*eased),
                    w if only_xy else int(w+dw*eased),
                    h if only_xy else int(h+dh*eased)]
-    
+
     def update(self):
+        """更新位置动画"""
         # 防止动画因为帧数过高而变快
         now = utime.ticks_ms()
         if utime.ticks_diff(now, self.last_time) < base_ani_sleep: return
         self.last_time = now
-        
+
         try:
             self.x, self.y, self.w, self.h = next(self.generator)
         except StopIteration:
-            self.generator = None 
-    
+            self.generator = None
+
     def values(self):
+        """
+        获取当前位置值
+
+        Returns:
+            tuple: (x, y, w, h)位置元组
+        """
         return self.x, self.y, self.w, self.h
-    
+
     def __repr__(self):
         return str(self.values())
 
 class Selector:
+    """
+    选择器类，用于在菜单中显示当前选中项
+    """
     def __init__(self):
+        """初始化选择器"""
         self.pos = Pos()
         self.fbuf = display
         if selector_fill:
@@ -65,9 +136,10 @@ class Selector:
             self.fbuf = framebuf.FrameBuffer(self.buf, display_w, display_h, framebuf.MONO_VLSB)
         self.drw = drawer.round_rect
         self.selected = None
-    
+
     # @timeit
     def update(self):
+        """更新选择器显示"""
         pos = self.pos
         cam = manager.current_menu.camera
         if pos.generator:
@@ -78,6 +150,13 @@ class Selector:
 
     # @timeit
     def select(self, child, update_cam=True):
+        """
+        选择指定子项
+
+        Args:
+            child: 要选择的子项
+            update_cam: 是否更新相机位置
+        """
         pos: Pos = child.pos
         menu: "ListMenu" | "IconMenu" = manager.current_menu
         menu_type = menu.type
@@ -98,8 +177,9 @@ class Selector:
         menu.selected_id = self.selected.id
         menu.scrollbar.update_val()
         if update_cam: menu.update_camera()
-    
+
     def up(self):
+        """选择上一个项目"""
         child_id = self.selected.id
         last_id = manager.current_menu.count_children-1
         if child_id == 0:
@@ -107,10 +187,11 @@ class Selector:
             child_id = last_id
         else:
             child_id -= 1
-        
+
         self.select(manager.current_menu.children[child_id])
-    
+
     def down(self):
+        """选择下一个项目"""
         child_id = self.selected.id
         last_id = manager.current_menu.count_children-1
         if child_id == last_id:
@@ -122,25 +203,48 @@ class Selector:
         self.select(manager.current_menu.children[child_id])
 
 class ButtonEvent:
+    """
+    按钮事件处理类
+    """
     def __init__(self):
-        self.event_dict = {}
+        """初始化按钮事件处理器"""
+        self.events = []
 
     def add(self, btn_pin, link, callback_on_pressed=False):
-        self.event_dict[btn_pin] = [Pin(btn_pin, Pin.IN, Pin.PULL_UP), False, link, callback_on_pressed]
-    
+        """
+        添加按钮事件
+
+        Args:
+            btn_pin: 按钮引脚
+            link: 回调函数
+            callback_on_pressed: 是否在按下时回调
+        """
+        self.events.append([Pin(btn_pin, Pin.IN, Pin.PULL_UP), False, link, callback_on_pressed])
+
     def update(self):
-        for btn_data in self.event_dict.values():
+        """更新按钮状态并处理事件"""
+        for btn_data in self.events:
             if btn_data[0].value():
-                if not btn_data[1]: return
+                if not btn_data[1]: continue
                 btn_data[1] = False
                 if not btn_data[3]: btn_data[2]()
             else:
-                if btn_data[1]: return
+                if btn_data[1]: continue
                 btn_data[1] = True
                 if btn_data[3]: btn_data[2]()
 
 class Manager:
+    """
+    管理器类，负责整个应用程序的管理
+    """
     def __init__(self, driver=None, dis=None):
+        """
+        初始化管理器
+
+        Args:
+            driver: 显示驱动
+            dis: 显示对象
+        """
         global manager, display
         manager = self
         if not (driver or dis): raise ValueError('lost display and display_driver')
@@ -185,11 +289,12 @@ class Manager:
         self.btn_event.add(pin_down, lambda: self.btn_pressed(self.down))
         self.btn_event.add(pin_yes, lambda: self.btn_pressed(self.yes))
         self.btn_event.add(pin_back, lambda: self.btn_pressed(self.back))
-        
+
         if check_fps:
             Timer(0, period=1000, callback=self.check_fps)
-        
+
     def up(self):
+        """处理向上按键"""
         if self.custom_page:
             _func = self.current_menu.up
             if callable(_func):
@@ -202,8 +307,9 @@ class Manager:
                 func()
                 return
         self.selector.up()
-        
+
     def down(self):
+        """处理向下按键"""
         if self.custom_page:
             _func = self.current_menu.down
             if callable(_func): _func()
@@ -215,8 +321,9 @@ class Manager:
                 func()
                 return
         self.selector.down()
-    
+
     def yes(self):
+        """处理确认按键"""
         if self.custom_page:
             _func = self.current_menu.yes
             if callable(_func):
@@ -225,25 +332,33 @@ class Manager:
         link = self.selector.selected.link
         if callable(link):
             link()
-    
+
     def back(self):
+        """处理返回按键"""
         if len(self.history) <= 1:
             return
         self.history.pop(-1)
         self.page(self.history[-1], record_history=False)
-    
+
     # @timeit
     def btn_pressed(self, func):
+        """
+        处理按钮按下事件
+
+        Args:
+            func: 要执行的函数
+        """
         if self.starting_up: return
         func()
-    
+
     # @timeit
     def check_fps(self, _timer=None):
+        """检查并更新FPS"""
         self.fps = self.count_fps
         self.count_fps = 0
-    
+
     def startup(self):
-        """startup 启动加载函数"""
+        """启动加载函数"""
         dis = display
         if not show_startup_page:
             self.load()
@@ -272,17 +387,25 @@ class Manager:
                 self.starting_up = False     # logo已经回到屏幕外
         del text
         collect()
-    
+
     # @timeit
     def load(self):
+        """加载启动列表中的项目"""
         load_list = self.load_list
         for _ in range(len(load_list)):
             load_list[0].init()
             self.load_list.pop(0)
         collect()
-    
+
     # @timeit
     def page(self, menu: "ListMenu" | "IconMenu" | "Page", record_history=True):
+        """
+        切换到指定页面
+
+        Args:
+            menu: 要切换到的菜单页面
+            record_history: 是否记录到历史记录
+        """
         if self.starting_up:
             print('booting...')
             self.startup()
@@ -306,9 +429,10 @@ class Manager:
         selector.drw = {0: drawer.round_rect,
                         1: drawer.icon_selector}[menu.type]
         selector.select(menu.children[menu.selected_id], update_cam=True)
-    
+
     # @timeit
     def update(self, *_args):
+        """更新显示内容"""
         if not self.display_on: return
         self.count_fps += 1
         self.btn_event.update()
@@ -329,17 +453,23 @@ class Manager:
         dis.show()
 
 class XScrollBar:
+    """
+    水平滚动条类
+    """
     def __init__(self):
+        """初始化水平滚动条"""
         self.pos = Pos()
-    
+
     def update(self):
+        """更新滚动条显示"""
         # out_gap is x pos
         # top_gap is y pos
         pos = self.pos
         display.fill_rect(out_gap, xscrollbar_mask_y, xscrollbar_w, xscrollbar_mask_h, 0)
         display.fill_rect(out_gap, top_gap, pos.w, pos.h, 1)
-    
+
     def update_val(self):
+        """更新滚动条值"""
         menu = manager.current_menu
         if menu.count_children == 1:
             w = xscrollbar_w
@@ -349,21 +479,27 @@ class XScrollBar:
         self.pos.animation((out_gap, top_gap, round(w), xscrollbar_h), ease_func=scrollbar_ease)
 
 class YScrollBar:
+    """
+    垂直滚动条类
+    """
     def __init__(self):
+        """初始化垂直滚动条"""
         self.pos = Pos()
-    
+
     def update(self):
+        """更新滚动条显示"""
         # yscrollbar_x is x pos
         # top_gap is y pos
         pos = self.pos
-        
+
         display.fill_rect(yscrollbar_mask_x, top_gap, yscrollbar_mask_w, yscrollbar_h, 0)
         display.line(yscrollbar_line_x, top_gap, yscrollbar_line_x, yscrollbar_line_yh, 1)
         display.line(yscrollbar_x, yscrollbar_bottom_line_y, yscrollbar_line_xw, yscrollbar_bottom_line_y, 1)
         display.fill_rect(yscrollbar_x, top_gap, pos.w, pos.h, 1)
-    
+
     # @timeit
     def update_val(self):
+        """更新滚动条值"""
         menu = manager.current_menu
         if menu.count_children == 1:
             h = yscrollbar_h
@@ -373,7 +509,11 @@ class YScrollBar:
         self.pos.animation((yscrollbar_x, top_gap, yscrollbar_w, round(h)), ease_func=scrollbar_ease)
 
 class BaseMenu:
+    """
+    菜单基类
+    """
     def __init__(self):
+        """初始化基础菜单"""
         self.type = -1
         cam = Pos()
         cam.w, cam.h = display_w, display_h
@@ -385,7 +525,11 @@ class BaseMenu:
         self.selected_id = 0
 
 class ListMenu(BaseMenu):
+    """
+    列表菜单类
+    """
     def __init__(self):
+        """初始化列表菜单"""
         super().__init__()
         self.type = 0
         self.scrollbar = YScrollBar()
@@ -393,12 +537,23 @@ class ListMenu(BaseMenu):
         self.camera.h = list_max_h
         self.left_space = out_gap
         self.top_space = top_gap
-    
+
     def offset_pos(self, x, y):
+        """
+        计算偏移后的位置
+
+        Args:
+            x: 原始x坐标
+            y: 原始y坐标
+
+        Returns:
+            tuple: 偏移后的坐标
+        """
         return (x-self.camera.x+list_selector_left_space+1,
                 y-self.camera.y+list_selector_top_space)
-    
+
     def update(self):
+        """更新菜单显示"""
         if self.camera.generator: self.camera.update()
         for child in self.children:
             _pos = child.pos
@@ -409,13 +564,20 @@ class ListMenu(BaseMenu):
         for other in self.others:
             if other.pos.generator: other.pos.update()
             other.update()
-    
+
     # @timeit
     def change_selected(self, child):
+        """
+        更改选中项
+
+        Args:
+            child: 新的选中项
+        """
         pass
-    
+
     # @timeit
     def update_camera(self):
+        """更新相机位置"""
         pos = manager.selector.selected.pos
         cam = self.camera
         y = pos.dy
@@ -426,8 +588,14 @@ class ListMenu(BaseMenu):
             cam.animation((x, y), camera_speed, only_xy=True, ease_func=camera_ease)
         elif yh > cam.y+cam.h:
             cam.animation((x, yh-dish_gap+1), camera_speed, only_xy=True, ease_func=camera_ease)
-    
+
     def add(self, child):
+        """
+        添加子项到菜单
+
+        Args:
+            child: 要添加的子项
+        """
         child.parent = self
         child.id = const(self.count_children)
         pos = child.pos
@@ -441,7 +609,11 @@ class ListMenu(BaseMenu):
         self.count_children += 1
 
 class IconMenu(BaseMenu):
+    """
+    图标菜单类
+    """
     def __init__(self):
+        """初始化图标菜单"""
         super().__init__()
         self.type = 1
         self.scrollbar = XScrollBar()
@@ -455,10 +627,21 @@ class IconMenu(BaseMenu):
         self.top_space = icon_selector_top_space
 
     def offset_pos(self, x, y):
+        """
+        计算偏移后的位置
+
+        Args:
+            x: 原始x坐标
+            y: 原始y坐标
+
+        Returns:
+            tuple: 偏移后的坐标
+        """
         return (x-self.camera.x+icon_selector_left_space,
                 y-self.camera.y+icon_selector_top_space)
 
     def update(self):
+        """更新菜单显示"""
         if self.camera.generator: self.camera.update()
         for child in self.children:
             _pos = child.pos
@@ -469,8 +652,14 @@ class IconMenu(BaseMenu):
         for other in self.others:
             if other.pos.generator: other.pos.update()
             other.update()
-    
+
     def change_selected(self, child):
+        """
+        更改选中项
+
+        Args:
+            child: 新的选中项
+        """
         self.title_label.set_text(child.title)
         pos = self.title_label.pos
         pos.y = display_h
@@ -478,13 +667,20 @@ class IconMenu(BaseMenu):
         pos.dx = pos.x
         pos.dy = display_h - pos.h - icon_title_bottom
         pos.animation((pos.dx, pos.dy), only_xy=True, ease_func=icon_title_ease)
-    
+
     def update_camera(self):
+        """更新相机位置"""
         pos = manager.selector.selected.pos
         cam = self.camera
         cam.animation((pos.dx-half_disw+pos.w//2, cam.y), camera_speed, only_xy=True, ease_func=camera_ease)
-    
+
     def add(self, child):
+        """
+        添加子项到菜单
+
+        Args:
+            child: 要添加的子项
+        """
         count_children = self.count_children
         child.parent = self
         child.id = const(count_children)
@@ -501,7 +697,17 @@ class IconMenu(BaseMenu):
 #         pass
 
 class TextDialog:
+    """
+    文本对话框类
+    """
     def __init__(self, text: str='', duration=False):
+        """
+        初始化文本对话框
+
+        Args:
+            text: 显示的文本
+            duration: 显示持续时间
+        """
         # 此类原来应继承于Dialog
         self.type = 'TextDialog'
         self.duration = duration if duration else dialog_default_duration
@@ -517,13 +723,25 @@ class TextDialog:
         if self.child.pos.w > dialog_max_w:
             print('Dialog text too long')
         manager.load_list.append(self)
-    
+
     def open(self, text):
+        """
+        打开对话框并显示文本
+
+        Args:
+            text: 要显示的文本
+        """
         self.set_text(text)
         self.pop()
-    
+
     # @timeit
     def init(self, reset_pos=True):
+        """
+        初始化对话框
+
+        Args:
+            reset_pos: 是否重置位置
+        """
         self.child.init()
         cpos = self.child.pos
         pos = self.pos
@@ -539,14 +757,21 @@ class TextDialog:
             cpos.y = dialog_out_gap+dialog_in_gap
         cpos.dx = pos.dx+dialog_in_gap
         cpos.dy = cpos.y
-    
+
     def set_text(self, text):
+        """
+        设置对话框文本
+
+        Args:
+            text: 新的文本内容
+        """
         self.text = text
         self.child.set_text(text)
         self.init(False)
         self.animation()
-    
+
     def animation(self):
+        """设置对话框动画"""
         cpos = self.child.pos
         pos = self.pos
         pos.animation((pos.dx, pos.dy), dialog_speed, ease_func=dialog_ease, only_xy=True)
@@ -554,23 +779,26 @@ class TextDialog:
 
     # @timeit
     def pop(self):
+        """弹出对话框"""
         self.animation()
         self.opening = True
         if not self.appended:
             manager.others.append(self)
             self.appended = True
-    
+
     # @timeit
     def close(self, _timer=None):
+        """关闭对话框"""
         self.closing = True
         self.opened = False
         cpos = self.child.pos
         pos = self.pos
         pos.animation((display_w, dialog_out_gap), dialog_speed, ease_func=dialog_ease, only_xy=True)
         cpos.animation((display_w, dialog_out_gap+dialog_in_gap), dialog_speed, ease_func=dialog_ease, only_xy=True)
-        
+
     # @timeit
     def update(self):
+        """更新对话框显示"""
         pos = self.pos
         if self.opened and utime.ticks_diff(utime.ticks_ms(),self.open_time)>self.duration:
             self.close()
@@ -591,13 +819,25 @@ class TextDialog:
         drawer.round_rect(display, pos.x, pos.y, pos.w, pos.h, 1, 0)
 
 class BaseWidget:
+    """
+    组件基类
+    """
     def __init__(self, parent):
+        """
+        初始化基础组件
+
+        Args:
+            parent: 父组件
+        """
         self.parent = parent
         self.pos = Pos()
         self.id = 0
         self.type = -1
 
 class Label(BaseWidget):
+    """
+    标签组件类
+    """
     def __init__(self, parent, text=None, link=None, append_list: bool=True, offset_pos: bool=True,
                  always_scroll: bool=False, scroll_w: int | bool=False, try_scroll: bool=True,
                  scroll_speed: int | bool=False, load: bool=True, font: int | bool=False, size: int | bool=False):
@@ -636,31 +876,46 @@ class Label(BaseWidget):
             self.scroll_speed = string_scroll_speed
         self.scroll_w = scroll_w
         self.scroll_w_ = scroll_w
-        
+
         # 在启动时加载字体
         if load: manager.load_list.append(self)
         if append_list: parent.add(self)
-    
+
     def add(self, widget):
+        """
+        添加子组件
+
+        Args:
+            widget: 要添加的组件
+        """
         self.link = self.widget_callback
         self.widget = widget
-    
+
     def init(self):
+        """初始化标签，加载字体"""
         # 耗时操作,会在启动时被manager调用加载
         self.pos.w = self.font.init(self.text)
-    
+
     def widget_callback(self):
+        """组件回调函数"""
         self.widget.widget_callback()
         if callable(self.link_): self.link_()
-    
+
     def set_text(self, text):
+        """
+        设置标签文本
+
+        Args:
+            text: 新的文本内容
+        """
         self.text = text
         self.init()
         selector = manager.selector
         if selector.selected is self:
             selector.select(self)
-    
+
     def scroll_text(self):
+        """滚动文本显示"""
         _pos = self.pos
         now = utime.ticks_ms()
         if utime.ticks_diff(now, self.last_time) < base_ani_sleep: return
@@ -678,6 +933,7 @@ class Label(BaseWidget):
 
     # @timeit
     def update(self):
+        """更新标签显示"""
         pos = self.pos
         if self.try_scroll:
             self.scroll_text()
@@ -688,7 +944,21 @@ class Label(BaseWidget):
         if self.widget: self.widget.update()
 
 class Icon(BaseWidget):
+    """
+    图标组件类
+    """
     def __init__(self, parent, filepath=None, title='', link=None, append_list: bool=True, offset_pos: bool=True):
+        """
+        初始化图标组件
+
+        Args:
+            parent: 父组件
+            filepath: 图片文件路径
+            title: 图标标题
+            link: 点击回调函数
+            append_list: 是否自动添加到父组件
+            offset_pos: 是否使用偏移坐标
+        """
         super().__init__(parent)
         self.type = 1
         self.pbm = upbm.PBMImg
@@ -701,16 +971,24 @@ class Icon(BaseWidget):
         # 在启动时加载图片
         manager.load_list.append(self)
         if append_list: parent.add(self)
-    
+
     def init(self):
+        """初始化图标，加载图片"""
         # 耗时操作,会在启动时被manager调用加载
         self.pbm.init(self.filepath)
-    
+
     def set_image(self, filepath):
+        """
+        设置图标图片
+
+        Args:
+            filepath: 新的图片文件路径
+        """
         self.filepath = filepath
         self.pbm.init(filepath)
-    
+
     def update(self):
+        """更新图标显示"""
         pos = self.pos
         x, y = pos.x, pos.y
         if self.offset:
@@ -718,7 +996,19 @@ class Icon(BaseWidget):
         self.drw(display.blit, self.filepath, x, y)
 
 class CheckBox(BaseWidget):
+    """
+    复选框组件类
+    """
     def __init__(self, parent, default=False, link=None, base_x=False):
+        """
+        初始化复选框
+
+        Args:
+            parent: 父组件
+            default: 默认值
+            link: 回调函数
+            base_x: 基础x坐标
+        """
         super().__init__(parent)
         self.type = 2
         self.value = default
@@ -730,21 +1020,39 @@ class CheckBox(BaseWidget):
         pos.x = self.base_x-widget_gap-pos.w
         pos.y = self.parent.pos.dy+half_list_item_space-4
         self.parent.add(self)
-    
+
     def update(self):
+        """更新复选框显示"""
         pos = self.pos
         x, y = manager.current_menu.offset_pos(pos.x, pos.y)
         display.fill_rect(x-widget_gap, y-5, disw_wgap-x, list_item_space, 0)  # mask
         display.rect(x, y, pos.w, pos.h, 1)
         if self.value: display.fill_rect(x+2, y+2, pos.w-4, pos.h-4, 1)
-    
+
     def widget_callback(self):
+        """组件回调函数"""
         self.value = not self.value
         if callable(self.link_): self.link_(self.value)
 
 class ListSelector(BaseWidget):
+    """
+    列表选择器组件类
+    """
     def __init__(self, parent, range_list, default_idx: int | bool=False, loop=False,
                  link=None, change_link=None, flash_speed: int | bool=False, base_x=False):
+        """
+        初始化列表选择器
+
+        Args:
+            parent: 父组件
+            range_list: 选择范围列表
+            default_idx: 默认索引
+            loop: 是否循环选择
+            link: 回调函数
+            change_link: 值改变时的回调函数
+            flash_speed: 闪烁速度
+            base_x: 基础x坐标
+        """
         super().__init__(parent)
         self.type = 3
         if not range_list: raise IndexError('a ListSelector Widget should has one or more items')
@@ -767,8 +1075,9 @@ class ListSelector(BaseWidget):
         self.base_x = base_x if base_x else list_max_w-list_selector_left_gap
         manager.load_list.append(self)
         self.parent.add(self)
-    
+
     def update(self):
+        """更新选择器显示"""
         pos = self.pos
         x, y = manager.current_menu.offset_pos(pos.x, pos.y)
         display.fill_rect(x-widget_gap, y, pos.w+widget_gap_m2, list_item_space, 0)
@@ -777,11 +1086,12 @@ class ListSelector(BaseWidget):
         elif utime.ticks_diff(now, self.last_time) > self.flash_speed:
             self.flash_status = not self.flash_status
             self.last_time = now
-        
+
         if self.flash_status:
             self.child.update()
-    
+
     def init(self):
+        """初始化选择器"""
         self.child.init()
         pos = self.pos
         cpos = self.child.pos
@@ -791,19 +1101,32 @@ class ListSelector(BaseWidget):
         pos.y = self.parent.pos.dy
         cpos.x = pos.x
         cpos.y = pos.y
-    
+
     def set_text(self, value):
+        """
+        设置选择器文本
+
+        Args:
+            value: 新的值
+        """
         self.value = value
         self.child.set_text(str(value))
         self.init()
         if manager.selector.selected is self.parent:
             manager.selector.select(self.parent)
-    
+
     def widget_callback(self):
+        """组件回调函数"""
         self.activate = not self.activate
         self.activate_widget(self.activate)
-    
+
     def activate_widget(self, status):
+        """
+        激活/取消激活组件
+
+        Args:
+            status: 激活状态
+        """
         self.activate = status
         if status:
             self.up, self.down = self._up, self._down
@@ -811,8 +1134,9 @@ class ListSelector(BaseWidget):
         else:
             self.up, self.down = None, None
             if callable(self.link_): self.link_(self.idx)
-    
+
     def _down(self):
+        """向下选择"""
         self.idx -= 1
         if self.idx < 0:
             self.idx = 0
@@ -822,8 +1146,9 @@ class ListSelector(BaseWidget):
             if self.loop: self.idx = 0
         self.set_text(self.range_list[self.idx])
         if callable(self.down_): self.down_(self.idx)
-    
+
     def _up(self):
+        """向上选择"""
         self.idx += 1
         if self.idx < 0:
             self.idx = 0
@@ -835,8 +1160,26 @@ class ListSelector(BaseWidget):
         if callable(self.up_): self.up_(self.idx)
 
 class NumberSelector(ListSelector):
+    """
+    数字选择器组件类
+    """
     def __init__(self, parent, default_num=0, min_num=0, max_num=10, step=1, loop=False,
                  link=None, change_link=None, flash_speed=False, base_x=False):
+        """
+        初始化数字选择器
+
+        Args:
+            parent: 父组件
+            default_num: 默认数字
+            min_num: 最小值
+            max_num: 最大值
+            step: 步长
+            loop: 是否循环
+            link: 回调函数
+            change_link: 值改变时的回调函数
+            flash_speed: 闪烁速度
+            base_x: 基础x坐标
+        """
         self.type = 4
         num_list = [i for i in range(min_num, max_num+1, step)]
         _change_link = change_link
@@ -844,19 +1187,24 @@ class NumberSelector(ListSelector):
         if callable(change_link): change_link = lambda v: _change_link(num_list[v])
         if callable(link): link = lambda v: _link(num_list[v])
         super().__init__(parent, num_list, num_list.index(default_num), loop, link, change_link, flash_speed, base_x)
-        
+
 class _BuiltinXDashLine:
+    """
+    内置水平虚线类
+    """
     def __init__(self):
+        """初始化虚线"""
         self.type = 5
-        
+
         self.pos = Pos()  # 所有组件必须拥有Pos
         fbuf = framebuf.FrameBuffer(bytearray(display_w), display_w, 1, framebuf.MONO_VLSB)
         self.drw = fbuf.line
         self.update = lambda: manager.display.blit(fbuf, 0, dashline_h)
-        
+
         manager.load_list.append(self)
-    
+
     def init(self):
+        """初始化虚线显示"""
         color = 0
         x = 0
         for _ in range(display_w // icon_dashline_split_length):
@@ -868,40 +1216,90 @@ class _BuiltinXDashLine:
         collect()
 
 class CustomWidget:
+    """
+    自定义组件类
+    """
     # no parent widget
     def __init__(self, link=None, as_others: bool=True):
+        """
+        初始化自定义组件
+
+        Args:
+            link: 回调函数
+            as_others: 是否作为其他组件处理
+        """
         self.type = -2
         self.pos = Pos()
         self.link = link
         if as_others: manager.others.append(self)
 
 class Page:
+    """
+    页面类
+    """
     def __init__(self, up=None, down=None, yes=None, page_type=-2):
+        """
+        初始化页面
+
+        Args:
+            up: 向上按键处理函数
+            down: 向下按键处理函数
+            yes: 确认按键处理函数
+            page_type: 页面类型
+        """
         self.type = page_type
         self.children = []
         self.count_children = 0
         self.camera = Pos()
         self.up, self.down, self.yes = up, down, yes
-    
+
     def offset_pos(self, x, y):
+        """
+        计算偏移后的位置
+
+        Args:
+            x: 原始x坐标
+            y: 原始y坐标
+
+        Returns:
+            tuple: 偏移后的坐标
+        """
         return (x-self.camera.x+out_gap,
                 y-self.camera.y+top_gap)
-    
+
     def add(self, child):
+        """
+        添加子项到页面
+
+        Args:
+            child: 要添加的子项
+        """
         child.id = self.count_children
         self.children.append(child)
         self.count_children += 1
-    
+
     def update(self):
+        """更新页面显示"""
         for child in self.children:
             if child.pos.generator: child.pos.update()
             child.update()
 
 def item(parent, *args, **kws) -> "None" | "Label" | "Icon":
+    """
+    创建项目组件
+
+    Args:
+        parent: 父组件
+        *args: 位置参数
+        **kws: 关键字参数
+
+    Returns:
+        创建的组件对象或None
+    """
     if isinstance(parent, ListMenu): return Label(parent, *args, **kws)
     elif isinstance(parent, IconMenu): return Icon(parent, *args, **kws)
     else: print('[WARNING] Item: Unknown menu type.')
     return None
 
-display: None
+display: Display
 manager: Manager
