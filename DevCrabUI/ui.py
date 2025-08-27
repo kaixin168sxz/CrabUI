@@ -79,7 +79,7 @@ class Selector:
         if selector_fill:
             self.buf = bytearray(display_fb_size)
             self.fbuf = framebuf.FrameBuffer(self.buf, display_w, display_h, framebuf.MONO_VLSB)
-        self.drw = drawer.list_selector
+        self.drw = drawer.round_rect
         self.selected = None
     
     # @timeit
@@ -97,7 +97,7 @@ class Selector:
         pos: Pos = child.pos
         menu: "ListMenu" | "IconMenu" = manager.current_menu
         menu_type = menu.type
-        if menu_type == 'ListMenu':
+        if menu_type == 0:
             child_w = 0  # child pos w
             if hasattr(child, 'widget') and child.widget:
                 child_w = child.widget.pos.w+widget_gap*2
@@ -105,7 +105,7 @@ class Selector:
             # 1是选择器的宽度
             self.pos.animation((pos.dx, pos.dy, w, pos.h+list_selector_top_gap*2+1),
                                selector_speed, ease_func=selector_ease)
-        elif menu_type == 'IconMenu':
+        elif menu_type == 1:
             # 1是选择器的宽度
             self.pos.animation((pos.dx, pos.dy+xscrollbar_space+1, pos.w+icon_selector_gap*2,
                                 pos.h+icon_selector_gap*2), selector_speed, ease_func=selector_ease)
@@ -309,18 +309,18 @@ class Manager:
                     i.pos.x = 0
                     i.pos.y = 0
             for i in menu.children:
-                expand_ease = icon_expand_ease if menu.type == 'IconMenu' else list_expand_ease
+                expand_ease = icon_expand_ease if menu.type == 1 else list_expand_ease
                 i.pos.animation((i.pos.dx, i.pos.dy), expand_speed, only_xy=True, ease_func=expand_ease)
         self.current_menu = menu
-        if menu.type not in ('ListMenu', 'IconMenu'):
+        if menu.type not in (0, 1):
             self.custom_page = True
             return
         self.custom_page = False
         selector: Selector = self.selector
         if not menu.count_children:
             raise IndexError('a menu should have one or more items')
-        selector.drw = {'ListMenu': drawer.list_selector,
-                        'IconMenu': drawer.icon_selector}[menu.type]
+        selector.drw = {0: drawer.round_rect,
+                        1: drawer.icon_selector}[menu.type]
         selector.select(menu.children[menu.selected_id], update_cam=True)
     
     # @timeit
@@ -347,14 +347,13 @@ class Manager:
 class XScrollBar:
     def __init__(self):
         self.pos = Pos()
-        self.drw = display.fill_rect
     
     def update(self):
         # out_gap is x pos
         # top_gap is y pos
         pos = self.pos
-        self.drw(out_gap, xscrollbar_mask_y, xscrollbar_w, xscrollbar_mask_h, 0)
-        self.drw(out_gap, top_gap, pos.w, pos.h, 1)
+        display.fill_rect(out_gap, xscrollbar_mask_y, xscrollbar_w, xscrollbar_mask_h, 0)
+        display.fill_rect(out_gap, top_gap, pos.w, pos.h, 1)
     
     def update_val(self):
         menu = manager.current_menu
@@ -368,18 +367,16 @@ class XScrollBar:
 class YScrollBar:
     def __init__(self):
         self.pos = Pos()
-        self.drw = display.fill_rect
-        self.line = display.line
     
     def update(self):
         # yscrollbar_x is x pos
         # top_gap is y pos
         pos = self.pos
         
-        self.drw(yscrollbar_mask_x, top_gap, yscrollbar_mask_w, yscrollbar_h, 0)
-        self.line(yscrollbar_line_x, top_gap, yscrollbar_line_x, yscrollbar_line_yh, 1)
-        self.line(yscrollbar_x, yscrollbar_bottom_line_y, yscrollbar_line_xw, yscrollbar_bottom_line_y, 1)
-        self.drw(yscrollbar_x, top_gap, pos.w, pos.h, 1)
+        display.fill_rect(yscrollbar_mask_x, top_gap, yscrollbar_mask_w, yscrollbar_h, 0)
+        display.line(yscrollbar_line_x, top_gap, yscrollbar_line_x, yscrollbar_line_yh, 1)
+        display.line(yscrollbar_x, yscrollbar_bottom_line_y, yscrollbar_line_xw, yscrollbar_bottom_line_y, 1)
+        display.fill_rect(yscrollbar_x, top_gap, pos.w, pos.h, 1)
     
     # @timeit
     def update_val(self):
@@ -393,7 +390,7 @@ class YScrollBar:
 
 class BaseMenu:
     def __init__(self):
-        self.type = 'BaseMenu'
+        self.type = -1
         cam = Pos()
         cam.w, cam.h = display_w, display_h
         self.camera = cam
@@ -406,7 +403,7 @@ class BaseMenu:
 class ListMenu(BaseMenu):
     def __init__(self):
         super().__init__()
-        self.type = 'ListMenu'
+        self.type = 0
         self.scrollbar = YScrollBar()
         self.others.append(self.scrollbar)
         self.camera.h = list_max_h
@@ -462,7 +459,7 @@ class ListMenu(BaseMenu):
 class IconMenu(BaseMenu):
     def __init__(self):
         super().__init__()
-        self.type = 'IconMenu'
+        self.type = 1
         self.scrollbar = XScrollBar()
         self.title_label = Label(self, '', append_list=False, offset_pos=False)
         self.title_label.pos.y = display_h
@@ -514,10 +511,10 @@ class IconMenu(BaseMenu):
         self.children.append(child)
         self.count_children += 1
 
-class Dialog:
-    def __init__(self):
-        # TODO: 一个可以自定义的Dialog组件
-        pass
+# class Dialog:
+#     def __init__(self):
+#         # TODO: 一个可以自定义的Dialog组件
+#         pass
 
 class TextDialog:
     def __init__(self, text: str='', duration=False):
@@ -526,8 +523,6 @@ class TextDialog:
         self.duration = duration if duration else dialog_default_duration
         self.text = text
         self.pos = Pos()
-        self.camera = Pos()  # 由Label调用，不起任何作用(但是不可删除)
-        self.drw = drawer.list_selector  # 其实就是圆角矩形
         # TextDialog目前仅支持显示一个Label组件
         self.child = Label(self, text, append_list=False, offset_pos=False, load=False)
         self.closing = False
@@ -604,20 +599,19 @@ class TextDialog:
             self.opening = False
             self.opened = True
             self.open_time = utime.ticks_ms()
-        self.drw(display, pos.x-2, pos.y-2, pos.w+5, pos.h+5, 0, 1)
+        drawer.round_rect(display, pos.x-2, pos.y-2, pos.w+5, pos.h+5, 0, 1)
         if self.child.pos.generator: self.child.pos.update()
         self.child.update()
         _xw = pos.x+pos.w
         display.fill_rect(_xw-2, pos.y-2, display_w-_xw+2, pos.h+4, 0)
-        self.drw(display, pos.x, pos.y, pos.w, pos.h, 1, 0)
+        drawer.round_rect(display, pos.x, pos.y, pos.w, pos.h, 1, 0)
 
 class BaseWidget:
     def __init__(self, parent):
         self.parent = parent
-        if parent: self.camera = parent.camera
         self.pos = Pos()
         self.id = 0
-        self.type = 'BaseWidget'
+        self.type = -1
 
 class Label(BaseWidget):
     def __init__(self, parent, text=None, link=None, append_list: bool=True, offset_pos: bool=True,
@@ -637,8 +631,8 @@ class Label(BaseWidget):
         load(int): 是否自动将self添加到manager的启动加载列表 (Builtin)
         """
         super().__init__(parent)
-        self.type = 'LabelWidget'
-        self.font = ufont.BMFont(font, size)
+        self.type = 0
+        self.font = ufont.bitmap_font(font, size)
         self.text = text
         self.title = text
         self.link = link
@@ -712,7 +706,7 @@ class Label(BaseWidget):
 class Icon(BaseWidget):
     def __init__(self, parent, filepath=None, title='', link=None, append_list: bool=True, offset_pos: bool=True):
         super().__init__(parent)
-        self.type = 'IconWidget'
+        self.type = 1
         self.pbm = upbm.PBMImg
         self.filepath = filepath
         self.link = link
@@ -742,6 +736,7 @@ class Icon(BaseWidget):
 class CheckBox(BaseWidget):
     def __init__(self, parent, default=False, link=None, base_x=False):
         super().__init__(parent)
+        self.type = 2
         self.value = default
         self.link_ = link
         self.base_x = base_x if base_x else list_max_w-list_selector_left_gap
@@ -767,6 +762,7 @@ class ListSelector(BaseWidget):
     def __init__(self, parent, range_list, default_idx: int | bool=False, loop=False,
                  link=None, change_link=None, flash_speed: int | bool=False, base_x=False):
         super().__init__(parent)
+        self.type = 3
         if not range_list: raise IndexError('a ListSelector Widget should has one or more items')
         self.idx = 0 if default_idx is False else default_idx
         self.max_idx = len(range_list)-1
@@ -857,6 +853,7 @@ class ListSelector(BaseWidget):
 class NumberSelector(ListSelector):
     def __init__(self, parent, default_num=0, min_num=0, max_num=10, step=1, loop=False,
                  link=None, change_link=None, flash_speed=False, base_x=False):
+        self.type = 4
         num_list = [i for i in range(min_num, max_num+1, step)]
         _change_link = change_link
         _link = link
@@ -866,7 +863,7 @@ class NumberSelector(ListSelector):
         
 class _BuiltinXDashLine:
     def __init__(self):
-        self.type = 'XDashLine'
+        self.type = 5
         
         self.pos = Pos()  # 所有组件必须拥有Pos
         fbuf = framebuf.FrameBuffer(bytearray(display_w), display_w, 1, framebuf.MONO_VLSB)
@@ -889,13 +886,13 @@ class _BuiltinXDashLine:
 class CustomWidget:
     # no parent widget
     def __init__(self, link=None, as_others: bool=True):
-        self.type = 'CustomWidget'
+        self.type = -2
         self.pos = Pos()
         self.link = link
         if as_others: manager.others.append(self)
 
 class Page:
-    def __init__(self, up=None, down=None, yes=None, page_type='CustomPage'):
+    def __init__(self, up=None, down=None, yes=None, page_type=-2):
         self.type = page_type
         self.children = []
         self.count_children = 0
