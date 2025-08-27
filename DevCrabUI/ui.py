@@ -139,19 +139,19 @@ class Selector:
 
 class ButtonEvent:
     def __init__(self):
-        self.event_dict = {}
+        self.events = []
 
     def add(self, btn_pin, link, callback_on_pressed=False):
-        self.event_dict[btn_pin] = [Pin(btn_pin, Pin.IN, Pin.PULL_UP), False, link, callback_on_pressed]
+        self.events.append([Pin(btn_pin, Pin.IN, Pin.PULL_UP), False, link, callback_on_pressed])
     
     def update(self):
-        for btn_data in self.event_dict.values():
+        for btn_data in self.events:
             if btn_data[0].value():
-                if not btn_data[1]: return
+                if not btn_data[1]: continue
                 btn_data[1] = False
                 if not btn_data[3]: btn_data[2]()
             else:
-                if btn_data[1]: return
+                if btn_data[1]: continue
                 btn_data[1] = True
                 if btn_data[3]: btn_data[2]()
 
