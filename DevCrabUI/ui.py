@@ -4,29 +4,13 @@ last edited: 2025.8.27
 """
 
 from .config import *
-from .libs import ufont, upbm, drawer, bufxor
+from .libs import ufont, upbm, drawer
+import bufxor
 import utime
 from machine import I2C, Pin, Timer, SPI, SoftI2C, SoftSPI
 import framebuf
 from micropython import const
 from gc import collect
-
-# 判断环境, micropython无法导入pyi
-try:
-    from .libs.display import Display
-except ImportError:
-    Display = None
-    collect()
-
-def timeit(f, *_args, **_kwargs):
-    myname = str(f).split(' ')[1]
-    def new_func(*_args, **_kwargs):
-        t = utime.ticks_us()
-        result = f(*_args, **_kwargs)
-        delta = utime.ticks_diff(utime.ticks_us(), t)
-        print('{}  {:6.3f}ms'.format(myname, delta/1000))
-        return result
-    return new_func
 
 class Pos:
     def __init__(self, x=0, y=0, w=0, h=0):
@@ -919,5 +903,5 @@ def item(parent, *args, **kws) -> "None" | "Label" | "Icon":
     else: print('[WARNING] Item: Unknown menu type.')
     return None
 
-display: Display
+display: None
 manager: Manager
