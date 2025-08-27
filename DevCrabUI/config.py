@@ -14,14 +14,14 @@ from micropython import const
 # 引脚配置
 
 # i2c display
-use_i2c = const(True)
+use_i2c = const(False)
 hardware_i2c = const(True)
 i2c_freq = const(1_000_000)
 display_sda = 27
 display_scl = 26
 
 # spi display
-use_spi = const(False)
+use_spi = const(True)
 hardware_spi = const(1)  # spi id号
 spi_freq = const(30_000_000)
 display_sck = 14   # d0/scl
