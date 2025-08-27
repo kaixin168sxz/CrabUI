@@ -12,16 +12,6 @@ import framebuf
 from micropython import const
 import gc
 
-def timeit(f, *_args, **_kwargs):
-    myname = str(f).split(' ')[1]
-    def new_func(*_args, **_kwargs):
-        t = utime.ticks_us()
-        result = f(*_args, **_kwargs)
-        delta = utime.ticks_diff(utime.ticks_us(), t)
-        print('{}  {:6.3f}ms'.format(myname, delta/1000))
-        return result
-    return new_func
-
 class Pos:
     def __init__(self, x=0, y=0, w=0, h=0):
         self.x, self.y, self.w, self.h = x, y, w, h
