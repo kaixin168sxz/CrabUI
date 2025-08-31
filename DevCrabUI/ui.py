@@ -87,17 +87,17 @@ class Pos:
         ease_func = ease_func if ease_func else default_ease
         if num_frames is None: num_frames = default_speed
         x, y, w, h = self.x, self.y, self.w, self.h
-        ew, eh = 0, 0
-        if not only_xy:
-            ew = pos[2]
-            eh = pos[3]
-        dx, dy, dw, dh = pos[0]-x, pos[1]-y, ew-w, eh-h
         _num_frames_sub1 = num_frames - 1
-        for i in range(num_frames):
-            eased = ease_func(i / _num_frames_sub1)
-            yield [int(x+dx*eased), int(y+dy*eased),
-                   w if only_xy else int(w+dw*eased),
-                   h if only_xy else int(h+dh*eased)]
+        if only_xy:
+            dx, dy = pos[0]-x, pos[1]-y
+            for i in range(num_frames):
+                eased = ease_func(i / _num_frames_sub1)
+                yield [int(x+dx*eased), int(y+dy*eased), w, h]
+        else:
+            dx, dy, dw, dh = pos[0]-x, pos[1]-y, pos[2]-w, pos[3]-h
+            for i in range(num_frames):
+                eased = ease_func(i / _num_frames_sub1)
+                yield [int(x+dx*eased), int(y+dy*eased), int(w+dw*eased), int(h+dh*eased)]
 
     def update(self):
         """更新位置动画"""
