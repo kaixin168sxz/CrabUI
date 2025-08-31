@@ -880,14 +880,9 @@ class Label(BaseWidget):
         self.always_scroll = always_scroll
         self.try_scroll = try_scroll
         self.last_time = False
-        if scroll_w is False:
-            scroll_w = disw_gap_bar
-        self.scroll_speed = scroll_speed
-        if scroll_speed is False:
-            self.scroll_speed = string_scroll_speed
-        self.scroll_w = scroll_w
-        self.scroll_w_ = scroll_w
-
+        self.scroll_w = disw_gap_bar if scroll_w is False else scroll_w
+        self.scroll_speed = string_scroll_speed if scroll_speed is False else scroll_speed
+        
         # 在启动时加载字体
         if load: manager.load_list.append(self)
         if append_list: parent.add(self)
