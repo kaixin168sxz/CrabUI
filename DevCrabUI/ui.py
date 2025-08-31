@@ -158,9 +158,8 @@ class Selector:
             update_cam: 是否更新相机位置
         """
         pos: Pos = child.pos
-        menu: "ListMenu" | "IconMenu" = manager.current_menu
-        menu_type = menu.type
-        if menu_type == 0:
+        menu = manager.current_menu
+        if menu.type == 0:
             child_w = 0  # child pos w
             if hasattr(child, 'widget') and child.widget:
                 child_w = child.widget.pos.w+widget_gap*2
@@ -168,7 +167,7 @@ class Selector:
             # 1是选择器的宽度
             self.pos.animation((pos.dx, pos.dy, w, pos.h+list_selector_top_gap*2+1),
                                selector_speed, ease_func=selector_ease)
-        elif menu_type == 1:
+        elif menu.type == 1:
             # 1是选择器的宽度
             self.pos.animation((pos.dx, pos.dy+xscrollbar_space+1, pos.w+icon_selector_gap*2,
                                 pos.h+icon_selector_gap*2), selector_speed, ease_func=selector_ease)
@@ -250,8 +249,8 @@ class Manager:
         if not (driver or dis): raise ValueError('lost display and display_driver')
         if dis: display = dis
         else:
-            print('using driver')
             if use_i2c:
+                # i2c display
                 if hardware_i2c:
                     i2c = I2C(hardware_i2c, scl=Pin(display_scl), sda=Pin(display_sda), freq=i2c_freq)
                 else:
@@ -259,6 +258,7 @@ class Manager:
                 display = driver.DisplayI2C(i2c, display_w, display_h)
                 del i2c
             elif use_spi:
+                # spi display
                 if hardware_spi:
                     spi = SPI(hardware_spi, mosi=Pin(display_mosi), miso=Pin(display_miso), sck=Pin(display_sck), baudrate=spi_freq)
                 else:
@@ -276,8 +276,8 @@ class Manager:
         self.display_on = True
         self.others = []
         self.custom_page = False
-        self.current_menu = None
-        self.icon_menu_dashline = _BuiltinXDashLine()
+        self.current_menu: "ListMenu" | "IconMenu" | "Page" | None = None
+        self.icon_menu_dashline = _XDashLine()
 
         # self.btn_up_event = ButtonEvent(pin_up, lambda: self.btn_pressed(self.up))
         # self.btn_down_event = ButtonEvent(pin_down, lambda: self.btn_pressed(self.down))
@@ -474,7 +474,7 @@ class XScrollBar:
         if menu.count_children == 1:
             w = xscrollbar_w
         else:
-            w = menu.selected_id/(menu.count_children-1)*xscrollbar_w
+            w = (menu.selected_id + 1 ) / menu.count_children * xscrollbar_w
 
         self.pos.animation((out_gap, top_gap, round(w), xscrollbar_h), ease_func=scrollbar_ease)
 
@@ -504,7 +504,7 @@ class YScrollBar:
         if menu.count_children == 1:
             h = yscrollbar_h
         else:
-            h = menu.selected_id/(menu.count_children-1)*yscrollbar_h
+            h = (menu.selected_id + 1 ) / menu.count_children * yscrollbar_h
 
         self.pos.animation((yscrollbar_x, top_gap, yscrollbar_w, round(h)), ease_func=scrollbar_ease)
 
@@ -1188,7 +1188,7 @@ class NumberSelector(ListSelector):
         if callable(link): link = lambda v: _link(num_list[v])
         super().__init__(parent, num_list, num_list.index(default_num), loop, link, change_link, flash_speed, base_x)
 
-class _BuiltinXDashLine:
+class _XDashLine:
     """
     内置水平虚线类
     """
@@ -1199,7 +1199,7 @@ class _BuiltinXDashLine:
         self.pos = Pos()  # 所有组件必须拥有Pos
         fbuf = framebuf.FrameBuffer(bytearray(display_w), display_w, 1, framebuf.MONO_VLSB)
         self.drw = fbuf.line
-        self.update = lambda: manager.display.blit(fbuf, 0, dashline_h)
+        self.update = lambda: display.blit(fbuf, 0, dashline_h)
 
         manager.load_list.append(self)
 
