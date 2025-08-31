@@ -74,10 +74,6 @@ display_h = const(64)
 # 字体配置
 font_size = const(12)
 font_path = 'files/output.bmf'
-fbuf_cache = const(False)  # 是否使用framebuffer缓存，而不是bytearray
-text_cache = const(True)  # 是否缓存Label的文字
-char_cache = const(False) # 是否缓存Label的字符
-index_cache = const(False)
 
 ##########################################
 
