@@ -51,7 +51,6 @@ class BMFont:
             x: x坐标
             y: y坐标
         """
-        x = x
         for char in string:
             blit_func(framebuf.FrameBuffer(bytearray(list(self.get_bitmap(char))),
                                            self.font_size, self.font_size, framebuf.MONO_HLSB), x, y, 0)
@@ -67,7 +66,6 @@ class BMFont:
             x: x坐标
             y: y坐标
         """
-        if y > display_h: return
         blit_func(self.str_cache[string], x, y, 0)
 
     def init(self, string) -> int:
