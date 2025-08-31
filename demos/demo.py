@@ -24,7 +24,7 @@ ui.item(root, 'CrabUI是一个流畅丝滑的ui框架，基于micropython。', l
 ui.item(root, 'Copyright 版权声明 (c) 2025 kaixin168sxz(kaixin1106)')
 b = ui.item(root, '修改显示器亮度')
 light = [10, 50, 100, 200, 255]
-ui.ListSelector(b, light, default_idx=4, loop=True, change_link=lambda v:dis.contrast(light[v]),
+ui.ListSelect(b, light, default_idx=4, loop=True, change_link=lambda v:dis.contrast(light[v]),
                 link=lambda v:dia.open('已修改亮度'))
 ui.item(root, 'Page2', link=lambda: manager.page(page2))
 ui.item(root, '基于Micropython!', link=lambda: dia.open('nothing'))
@@ -61,6 +61,7 @@ nn = ui.Label(page4, 'hello')
 nn.pos.dx = 40
 
 manager.page(root)
+
 while True:
     manager.update()
     # gc.collect()
