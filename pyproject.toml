@@ -1,6 +1,6 @@
 [project]
-name = "crabui"
-version = "0.1.0"
-description = "Add your description here"
+name = "CrabUI"
+version = "0.37"
+description = "A smooth ui framework in micropython."
 requires-python = ">=3.12"
 dependencies = []
