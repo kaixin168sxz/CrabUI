@@ -369,7 +369,7 @@ class Manager:
             self.load()
             self.starting_up = False
             return
-        text = ufont.BMFont()
+        text = ufont.bitmap_font()
         logo_w = text.init(logo_text)
         x = half_disw-logo_w//2
         y = half_dish-half_font_size
