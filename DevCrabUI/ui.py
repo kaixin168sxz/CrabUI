@@ -119,6 +119,9 @@ class Pos:
         """
         return self.x, self.y, self.w, self.h
 
+    def centre(self, x:int=0, y:int=0):
+        return (display_w // 2 - self.w // 2) + x, (display_h // 2 - self.h // 2) + y
+
     def __repr__(self):
         return str(self.values())
 
@@ -292,6 +295,9 @@ class Manager:
         if check_fps:
             Timer(0, period=1000, callback=self.check_fps)
 
+    def add(self, child):
+        self.others.append(child)
+
     def up(self):
         """处理向上按键"""
         if self.custom_page:
@@ -445,7 +451,9 @@ class Manager:
         if selector_fill and not self.custom_page:
             bufxor.xor(dis.buffer, dis.buffer, self.selector.buf)
         if self.others:
-            for i in self.others: i.update()
+            for i in self.others:
+                if i.pos.generator: i.pos.update()
+                i.update()
         if check_fps:
             dis.fill_rect(0, 0, 30, 8, 0)
             dis.text(str(self.fps), 0, 0)
@@ -868,6 +876,7 @@ class Label(BaseWidget):
         super().__init__(parent)
         self.type = 0
         self.font = ufont.bitmap_font(font, size)
+        self.pos.w = self.font.update_width(text)
         self.text = text
         self.title = text
         self.link = link
