@@ -110,17 +110,8 @@ class Pos:
         except StopIteration:
             self.generator = None
 
-    def values(self):
-        """
-        获取当前位置值
-
-        Returns:
-            tuple: (x, y, w, h)位置元组
-        """
-        return self.x, self.y, self.w, self.h
-
-    def __repr__(self):
-        return str(self.values())
+    def centre(self, x:int=0, y:int=0):
+        return (display_w // 2 - self.w // 2) + x, (display_h // 2 - self.h // 2) + y
 
 class Selector:
     """
@@ -292,6 +283,9 @@ class Manager:
         if check_fps:
             Timer(0, period=1000, callback=self.check_fps)
 
+    def add(self, child):
+        self.others.append(child)
+
     def up(self):
         """处理向上按键"""
         if self.custom_page:
@@ -363,7 +357,7 @@ class Manager:
             self.load()
             self.starting_up = False
             return
-        text = ufont.BMFont()
+        text = ufont.bitmap_font()
         logo_w = text.init(logo_text)
         x = half_disw-logo_w//2
         y = half_dish-half_font_size
@@ -445,7 +439,9 @@ class Manager:
         if selector_fill and not self.custom_page:
             bufxor.xor(dis.buffer, dis.buffer, self.selector.buf)
         if self.others:
-            for i in self.others: i.update()
+            for i in self.others:
+                if i.pos.generator: i.pos.update()
+                i.update()
         if check_fps:
             dis.fill_rect(0, 0, 30, 8, 0)
             dis.text(str(self.fps), 0, 0)
@@ -831,7 +827,7 @@ class BaseWidget:
     """
     组件基类
     """
-    def __init__(self, parent=None, link=None, as_others:bool=False):
+    def __init__(self, parent=None, link=None, add_self:bool=False):
         """
         初始化基础组件
 
@@ -843,7 +839,7 @@ class BaseWidget:
         self.id = 0
         self.type = -1
         self.link = link
-        if as_others: manager.others.append(self)
+        if add_self: parent.add(self)
 
 class Label(BaseWidget):
     """
@@ -868,6 +864,7 @@ class Label(BaseWidget):
         super().__init__(parent)
         self.type = 0
         self.font = ufont.bitmap_font(font, size)
+        self.pos.w = self.font.update_width(text)
         self.text = text
         self.title = text
         self.link = link
@@ -940,10 +937,9 @@ class Label(BaseWidget):
     # @timeit
     def update(self):
         """更新标签显示"""
-        pos = self.pos
         if self.try_scroll:
             self.scroll_text()
-        x, y = pos.x, pos.y
+        x, y = self.pos.x, self.pos.y
         if self.offset:
             x, y = manager.current_menu.offset_pos(x, y)
         self.drw(display.blit, self.text, x-self.xscroll, y)

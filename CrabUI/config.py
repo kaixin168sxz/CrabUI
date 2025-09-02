@@ -43,7 +43,7 @@ pin_back = 36
 # gap config
 # 间距配置
 out_gap = const(0)
-top_gap = const(10)
+top_gap = const(0)
 
 list_item_gap = const(1)
 list_selector_left_gap = const(1)
