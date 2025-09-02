@@ -43,7 +43,7 @@ pin_back = 36
 # gap config
 # 间距配置
 out_gap = const(0)
-top_gap = const(10)
+top_gap = const(0)
 
 list_item_gap = const(1)
 list_selector_left_gap = const(1)
@@ -74,10 +74,6 @@ display_h = const(64)
 # 字体配置
 font_size = const(12)
 font_path = 'files/output.bmf'
-fbuf_cache = const(False)  # 是否使用framebuffer缓存，而不是bytearray
-text_cache = const(True)  # 是否缓存Label的文字
-char_cache = const(False) # 是否缓存Label的字符
-index_cache = const(False)
 
 ##########################################
 
@@ -111,17 +107,23 @@ logo_text = '欢迎使用!'
 # animation config
 # 动画设置
 expand_ani = const(True)
-base_ani_fps = const(60)   # 动画的最大帧数
+base_ani_fps = const(100)   # 动画的最大帧数
 
 # 动画时长
 
 # 在指定帧数内到达目的地
-default_speed = const(20)
-camera_speed = const(20)
-selector_speed = const(16)
-expand_speed = const(20)
-dialog_speed = const(14)
+# default_speed = const(20)
+# camera_speed = const(20)
+# selector_speed = const(16)
+# expand_speed = const(20)
+# dialog_speed = const(14)
 dialog_default_duration = const(2000) # ms
+
+default_speed = const(25)
+camera_speed = const(25)
+selector_speed = const(20)
+expand_speed = const(25)
+dialog_speed = const(20)
 
 string_scroll_speed = const(2)  # px(速度:像素)
 widget_flash_speed = const(250) # 闪烁间隙(当子控件被激活时) ms(时间:毫秒)
@@ -138,14 +140,14 @@ def ease_in_out_back(x):
     return (math.pow(2 * x, 2) * ((c2 + 1) * 2 * x - c2)) / 2 if x < 0.5 else \
            (math.pow(2 * x - 2, 2) * ((c2 + 1) * (x * 2 - 2) + c2) + 2) / 2
 
-camera_ease = ease_in_out_back
-selector_ease = ease_in_out_back
+camera_ease = ease_out_circ
+selector_ease = ease_out_circ
 icon_expand_ease = ease_out_circ
 list_expand_ease = ease_out_circ
-default_ease = ease_in_out_back
-scrollbar_ease = ease_in_out_back
-icon_title_ease = ease_in_out_back
-dialog_ease = ease_in_out_back
+default_ease = ease_out_circ
+scrollbar_ease = ease_out_circ
+icon_title_ease = ease_out_circ
+dialog_ease = ease_out_circ
 
 ##########################################
 

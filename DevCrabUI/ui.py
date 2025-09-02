@@ -9,7 +9,6 @@ import bufxor
 import utime
 from machine import I2C, Pin, Timer, SPI, SoftI2C, SoftSPI
 import framebuf
-from micropython import const
 from gc import collect
 
 class Pos:
@@ -60,17 +59,17 @@ class Pos:
         ease_func = ease_func if ease_func else default_ease
         if num_frames is None: num_frames = default_speed
         x, y, w, h = self.x, self.y, self.w, self.h
-        ew, eh = 0, 0
-        if not only_xy:
-            ew = pos[2]
-            eh = pos[3]
-        dx, dy, dw, dh = pos[0]-x, pos[1]-y, ew-w, eh-h
         _num_frames_sub1 = num_frames - 1
-        for i in range(num_frames):
-            eased = ease_func(i / _num_frames_sub1)
-            yield [int(x+dx*eased), int(y+dy*eased),
-                   w if only_xy else int(w+dw*eased),
-                   h if only_xy else int(h+dh*eased)]
+        if only_xy:
+            dx, dy = pos[0]-x, pos[1]-y
+            for i in range(num_frames):
+                eased = ease_func(i / _num_frames_sub1)
+                yield [int(x+dx*eased), int(y+dy*eased), w, h]
+        else:
+            dx, dy, dw, dh = pos[0]-x, pos[1]-y, pos[2]-w, pos[3]-h
+            for i in range(num_frames):
+                eased = ease_func(i / _num_frames_sub1)
+                yield [int(x+dx*eased), int(y+dy*eased), int(w+dw*eased), int(h+dh*eased)]
 
     def update(self):
         """更新位置动画"""
@@ -84,17 +83,8 @@ class Pos:
         except StopIteration:
             self.generator = None
 
-    def values(self):
-        """
-        获取当前位置值
-
-        Returns:
-            tuple: (x, y, w, h)位置元组
-        """
-        return self.x, self.y, self.w, self.h
-
-    def __repr__(self):
-        return str(self.values())
+    def centre(self, x:int=0, y:int=0):
+        return (display_w // 2 - self.w // 2) + x, (display_h // 2 - self.h // 2) + y
 
 class Selector:
     """
@@ -131,9 +121,8 @@ class Selector:
             update_cam: 是否更新相机位置
         """
         pos: Pos = child.pos
-        menu: "ListMenu" | "IconMenu" = manager.current_menu
-        menu_type = menu.type
-        if menu_type == 0:
+        menu = manager.current_menu
+        if menu.type == 0:
             child_w = 0  # child pos w
             if hasattr(child, 'widget') and child.widget:
                 child_w = child.widget.pos.w+widget_gap*2
@@ -141,11 +130,11 @@ class Selector:
             # 1是选择器的宽度
             self.pos.animation((pos.dx, pos.dy, w, pos.h+list_selector_top_gap*2+1),
                                selector_speed, ease_func=selector_ease)
-        elif menu_type == 1:
+        elif menu.type == 1:
             # 1是选择器的宽度
             self.pos.animation((pos.dx, pos.dy+xscrollbar_space+1, pos.w+icon_selector_gap*2,
                                 pos.h+icon_selector_gap*2), selector_speed, ease_func=selector_ease)
-        menu.change_selected(child)
+        menu.change_selection(child)
         self.selected = child
         menu.selected_id = self.selected.id
         menu.scrollbar.update_val()
@@ -223,8 +212,8 @@ class Manager:
         if not (driver or dis): raise ValueError('lost display and display_driver')
         if dis: display = dis
         else:
-            print('using driver')
             if use_i2c:
+                # i2c display
                 if hardware_i2c:
                     i2c = I2C(hardware_i2c, scl=Pin(display_scl), sda=Pin(display_sda), freq=i2c_freq)
                 else:
@@ -232,6 +221,7 @@ class Manager:
                 display = driver.DisplayI2C(i2c, display_w, display_h)
                 del i2c
             elif use_spi:
+                # spi display
                 if hardware_spi:
                     spi = SPI(hardware_spi, mosi=Pin(display_mosi), miso=Pin(display_miso), sck=Pin(display_sck), baudrate=spi_freq)
                 else:
@@ -249,8 +239,8 @@ class Manager:
         self.display_on = True
         self.others = []
         self.custom_page = False
-        self.current_menu = None
-        self.icon_menu_dashline = _BuiltinXDashLine()
+        self.current_menu: "ListMenu" | "IconMenu" | "Page" | None = None
+        self.icon_menu_dashline = _XDashLine()
 
         # self.btn_up_event = ButtonEvent(pin_up, lambda: self.btn_pressed(self.up))
         # self.btn_down_event = ButtonEvent(pin_down, lambda: self.btn_pressed(self.down))
@@ -265,6 +255,9 @@ class Manager:
 
         if check_fps:
             Timer(0, period=1000, callback=self.check_fps)
+
+    def add(self, child):
+        self.others.append(child)
 
     def up(self):
         """处理向上按键"""
@@ -337,7 +330,7 @@ class Manager:
             self.load()
             self.starting_up = False
             return
-        text = ufont.BMFont()
+        text = ufont.bitmap_font()
         logo_w = text.init(logo_text)
         x = half_disw-logo_w//2
         y = half_dish-half_font_size
@@ -419,7 +412,9 @@ class Manager:
         if selector_fill and not self.custom_page:
             bufxor.xor(dis.buffer, dis.buffer, self.selector.buf)
         if self.others:
-            for i in self.others: i.update()
+            for i in self.others:
+                if i.pos.generator: i.pos.update()
+                i.update()
         if check_fps:
             dis.fill_rect(0, 0, 30, 8, 0)
             dis.text(str(self.fps), 0, 0)
@@ -447,7 +442,7 @@ class XScrollBar:
         if menu.count_children == 1:
             w = xscrollbar_w
         else:
-            w = menu.selected_id/(menu.count_children-1)*xscrollbar_w
+            w = (menu.selected_id + 1 ) / menu.count_children * xscrollbar_w
 
         self.pos.animation((out_gap, top_gap, round(w), xscrollbar_h), ease_func=scrollbar_ease)
 
@@ -477,39 +472,35 @@ class YScrollBar:
         if menu.count_children == 1:
             h = yscrollbar_h
         else:
-            h = menu.selected_id/(menu.count_children-1)*yscrollbar_h
+            h = (menu.selected_id + 1 ) / menu.count_children * yscrollbar_h
 
         self.pos.animation((yscrollbar_x, top_gap, yscrollbar_w, round(h)), ease_func=scrollbar_ease)
 
-class BaseMenu:
+class Page:
     """
-    菜单基类
+    页面类
     """
-    def __init__(self):
-        """初始化基础菜单"""
-        self.type = -1
-        cam = Pos()
-        cam.w, cam.h = display_w, display_h
-        self.camera = cam
+    def __init__(self, up=None, down=None, yes=None, page_type=-1):
+        """
+        初始化页面
+
+        Args:
+            up: 向上按键处理函数
+            down: 向下按键处理函数
+            yes: 确认按键处理函数
+            page_type: 页面类型
+        """
+        self.type = page_type
         self.children = []
+        self.count_children = 0
+        self.camera = Pos()
+        self.camera.w, self.camera.h = display_w, display_h
+        self.up, self.down, self.yes = up, down, yes
         self.others = []
         self.scrollbar = None
-        self.count_children = 0
         self.selected_id = 0
-
-class ListMenu(BaseMenu):
-    """
-    列表菜单类
-    """
-    def __init__(self):
-        """初始化列表菜单"""
-        super().__init__()
-        self.type = 0
-        self.scrollbar = YScrollBar()
-        self.others.append(self.scrollbar)
-        self.camera.h = list_max_h
-        self.left_space = out_gap
-        self.top_space = top_gap
+        self.x_offset = out_gap
+        self.y_offset = top_gap
 
     def offset_pos(self, x, y):
         """
@@ -522,15 +513,45 @@ class ListMenu(BaseMenu):
         Returns:
             tuple: 偏移后的坐标
         """
-        return (x-self.camera.x+list_selector_left_space+1,
-                y-self.camera.y+list_selector_top_space)
+        return (x-self.camera.x+self.x_offset,
+                y-self.camera.y+self.y_offset)
+
+    def add(self, child):
+        """
+        添加子项到页面
+
+        Args:
+            child: 要添加的子项
+        """
+        child.id = self.count_children
+        self.children.append(child)
+        self.count_children += 1
+
+    def update(self):
+        """更新页面显示"""
+        for child in self.children:
+            if child.pos.generator: child.pos.update()
+            child.update()
+
+class ListMenu(Page):
+    """
+    列表菜单类
+    """
+    def __init__(self):
+        """初始化列表菜单"""
+        super().__init__(page_type=0)
+        self.scrollbar = YScrollBar()
+        self.others.append(self.scrollbar)
+        self.camera.h = list_max_h
+        self.x_offset = list_selector_left_space+1
+        self.y_offset = list_selector_top_space
 
     def update(self):
         """更新菜单显示"""
         if self.camera.generator: self.camera.update()
         for child in self.children:
             _pos = child.pos
-            _y = _pos.y-self.camera.y+self.top_space
+            _y = _pos.y-self.camera.y+top_gap
             if _pos.generator: _pos.update()
             if  _y>display_h or _y+_pos.h<0: continue
             child.update()
@@ -539,7 +560,7 @@ class ListMenu(BaseMenu):
             other.update()
 
     # @timeit
-    def change_selected(self, child):
+    def change_selection(self, child):
         """
         更改选中项
 
@@ -570,7 +591,7 @@ class ListMenu(BaseMenu):
             child: 要添加的子项
         """
         child.parent = self
-        child.id = const(self.count_children)
+        child.id = self.count_children
         pos = child.pos
         pos.dx = pos.x
         dy = 0
@@ -581,14 +602,13 @@ class ListMenu(BaseMenu):
         self.children.append(child)
         self.count_children += 1
 
-class IconMenu(BaseMenu):
+class IconMenu(Page):
     """
     图标菜单类
     """
     def __init__(self):
         """初始化图标菜单"""
-        super().__init__()
-        self.type = 1
+        super().__init__(page_type=1)
         self.scrollbar = XScrollBar()
         self.title_label = Label(self, '', append_list=False, offset_pos=False)
         self.title_label.pos.y = display_h
@@ -596,29 +616,15 @@ class IconMenu(BaseMenu):
         self.others.append(self.scrollbar)
         self.others.append(manager.icon_menu_dashline)
         self.camera.w = icon_max_w
-        self.left_space = icon_selector_left_space
-        self.top_space = icon_selector_top_space
-
-    def offset_pos(self, x, y):
-        """
-        计算偏移后的位置
-
-        Args:
-            x: 原始x坐标
-            y: 原始y坐标
-
-        Returns:
-            tuple: 偏移后的坐标
-        """
-        return (x-self.camera.x+icon_selector_left_space,
-                y-self.camera.y+icon_selector_top_space)
+        self.x_offset = icon_selector_left_space
+        self.y_offset = icon_selector_top_space
 
     def update(self):
         """更新菜单显示"""
         if self.camera.generator: self.camera.update()
         for child in self.children:
             _pos = child.pos
-            _x = _pos.x-self.camera.x+self.left_space
+            _x = _pos.x-self.camera.x+out_gap
             if _pos.generator: _pos.update()
             if  _x>display_w or _x+_pos.w<0: continue
             child.update()
@@ -626,7 +632,7 @@ class IconMenu(BaseMenu):
             if other.pos.generator: other.pos.update()
             other.update()
 
-    def change_selected(self, child):
+    def change_selection(self, child):
         """
         更改选中项
 
@@ -654,11 +660,10 @@ class IconMenu(BaseMenu):
         Args:
             child: 要添加的子项
         """
-        count_children = self.count_children
         child.parent = self
-        child.id = const(count_children)
+        child.id = self.count_children
         pos = child.pos
-        pos.dx = icon_item_space*count_children
+        pos.dx = icon_item_space*self.count_children
         pos.dy = pos.y
         if not expand_ani: pos.x = pos.dx
         self.children.append(child)
@@ -795,7 +800,7 @@ class BaseWidget:
     """
     组件基类
     """
-    def __init__(self, parent):
+    def __init__(self, parent=None, link=None, add_self:bool=False):
         """
         初始化基础组件
 
@@ -806,6 +811,8 @@ class BaseWidget:
         self.pos = Pos()
         self.id = 0
         self.type = -1
+        self.link = link
+        if add_self: parent.add(self)
 
 class Label(BaseWidget):
     """
@@ -830,6 +837,7 @@ class Label(BaseWidget):
         super().__init__(parent)
         self.type = 0
         self.font = ufont.bitmap_font(font, size)
+        self.pos.w = self.font.update_width(text)
         self.text = text
         self.title = text
         self.link = link
@@ -842,14 +850,9 @@ class Label(BaseWidget):
         self.always_scroll = always_scroll
         self.try_scroll = try_scroll
         self.last_time = False
-        if scroll_w is False:
-            scroll_w = disw_gap_bar
-        self.scroll_speed = scroll_speed
-        if scroll_speed is False:
-            self.scroll_speed = string_scroll_speed
-        self.scroll_w = scroll_w
-        self.scroll_w_ = scroll_w
-
+        self.scroll_w = disw_gap_bar if scroll_w is False else scroll_w
+        self.scroll_speed = string_scroll_speed if scroll_speed is False else scroll_speed
+        
         # 在启动时加载字体
         if load: manager.load_list.append(self)
         if append_list: parent.add(self)
@@ -907,10 +910,9 @@ class Label(BaseWidget):
     # @timeit
     def update(self):
         """更新标签显示"""
-        pos = self.pos
         if self.try_scroll:
             self.scroll_text()
-        x, y = pos.x, pos.y
+        x, y = self.pos.x, self.pos.y
         if self.offset:
             x, y = manager.current_menu.offset_pos(x, y)
         self.drw(display.blit, self.text, x-self.xscroll, y)
@@ -1007,7 +1009,7 @@ class CheckBox(BaseWidget):
         self.value = not self.value
         if callable(self.link_): self.link_(self.value)
 
-class ListSelector(BaseWidget):
+class ListSelect(BaseWidget):
     """
     列表选择器组件类
     """
@@ -1132,7 +1134,7 @@ class ListSelector(BaseWidget):
         self.set_text(self.range_list[self.idx])
         if callable(self.up_): self.up_(self.idx)
 
-class NumberSelector(ListSelector):
+class NumSelect(ListSelect):
     """
     数字选择器组件类
     """
@@ -1161,7 +1163,7 @@ class NumberSelector(ListSelector):
         if callable(link): link = lambda v: _link(num_list[v])
         super().__init__(parent, num_list, num_list.index(default_num), loop, link, change_link, flash_speed, base_x)
 
-class _BuiltinXDashLine:
+class _XDashLine:
     """
     内置水平虚线类
     """
@@ -1172,7 +1174,7 @@ class _BuiltinXDashLine:
         self.pos = Pos()  # 所有组件必须拥有Pos
         fbuf = framebuf.FrameBuffer(bytearray(display_w), display_w, 1, framebuf.MONO_VLSB)
         self.drw = fbuf.line
-        self.update = lambda: manager.display.blit(fbuf, 0, dashline_h)
+        self.update = lambda: display.blit(fbuf, 0, dashline_h)
 
         manager.load_list.append(self)
 
@@ -1187,75 +1189,6 @@ class _BuiltinXDashLine:
             color = not color
         del x, to_x, color
         collect()
-
-class CustomWidget:
-    """
-    自定义组件类
-    """
-    # no parent widget
-    def __init__(self, link=None, as_others: bool=True):
-        """
-        初始化自定义组件
-
-        Args:
-            link: 回调函数
-            as_others: 是否作为其他组件处理
-        """
-        self.type = -2
-        self.pos = Pos()
-        self.link = link
-        if as_others: manager.others.append(self)
-
-class Page:
-    """
-    页面类
-    """
-    def __init__(self, up=None, down=None, yes=None, page_type=-2):
-        """
-        初始化页面
-
-        Args:
-            up: 向上按键处理函数
-            down: 向下按键处理函数
-            yes: 确认按键处理函数
-            page_type: 页面类型
-        """
-        self.type = page_type
-        self.children = []
-        self.count_children = 0
-        self.camera = Pos()
-        self.up, self.down, self.yes = up, down, yes
-
-    def offset_pos(self, x, y):
-        """
-        计算偏移后的位置
-
-        Args:
-            x: 原始x坐标
-            y: 原始y坐标
-
-        Returns:
-            tuple: 偏移后的坐标
-        """
-        return (x-self.camera.x+out_gap,
-                y-self.camera.y+top_gap)
-
-    def add(self, child):
-        """
-        添加子项到页面
-
-        Args:
-            child: 要添加的子项
-        """
-        child.id = self.count_children
-        self.children.append(child)
-        self.count_children += 1
-
-    def update(self):
-        """更新页面显示"""
-        for child in self.children:
-            if child.pos.generator: child.pos.update()
-            child.update()
 
 def item(parent, *args, **kws) -> "None" | "Label" | "Icon":
     """
