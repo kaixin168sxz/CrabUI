@@ -110,20 +110,8 @@ class Pos:
         except StopIteration:
             self.generator = None
 
-    def values(self):
-        """
-        获取当前位置值
-
-        Returns:
-            tuple: (x, y, w, h)位置元组
-        """
-        return self.x, self.y, self.w, self.h
-
     def centre(self, x:int=0, y:int=0):
         return (display_w // 2 - self.w // 2) + x, (display_h // 2 - self.h // 2) + y
-
-    def __repr__(self):
-        return str(self.values())
 
 class Selector:
     """
@@ -839,7 +827,7 @@ class BaseWidget:
     """
     组件基类
     """
-    def __init__(self, parent=None, link=None, as_others:bool=False):
+    def __init__(self, parent=None, link=None, add_self:bool=False):
         """
         初始化基础组件
 
@@ -851,7 +839,7 @@ class BaseWidget:
         self.id = 0
         self.type = -1
         self.link = link
-        if as_others: manager.others.append(self)
+        if add_self: parent.add(self)
 
 class Label(BaseWidget):
     """
@@ -949,10 +937,9 @@ class Label(BaseWidget):
     # @timeit
     def update(self):
         """更新标签显示"""
-        pos = self.pos
         if self.try_scroll:
             self.scroll_text()
-        x, y = pos.x, pos.y
+        x, y = self.pos.x, self.pos.y
         if self.offset:
             x, y = manager.current_menu.offset_pos(x, y)
         self.drw(display.blit, self.text, x-self.xscroll, y)
