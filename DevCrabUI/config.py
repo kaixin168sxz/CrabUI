@@ -125,6 +125,12 @@ selector_speed = const(20)
 expand_speed = const(25)
 dialog_speed = const(20)
 
+# default_speed = const(10)
+# camera_speed = const(10)
+# selector_speed = const(8)
+# expand_speed = const(10)
+# dialog_speed = const(7)
+
 string_scroll_speed = const(2)  # px(速度:像素)
 widget_flash_speed = const(250) # 闪烁间隙(当子控件被激活时) ms(时间:毫秒)
 
