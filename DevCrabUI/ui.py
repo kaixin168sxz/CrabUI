@@ -402,23 +402,22 @@ class Manager:
         if not self.display_on: return
         self.count_fps += 1
         self.btn_event.update()
-        dis = display
-        dis.fill(0)
+        display.fill(0)
         self.current_menu.update()
-        if not self.custom_page: self.selector.update()
-        dis.fill_rect(0, 0, display_w, top_gap, 0)
-        dis.fill_rect(0, top_gap, out_gap, display_h, 0)
-        dis.fill_rect(right_mask_x, top_gap, out_gap, display_h, 0)
-        if selector_fill and not self.custom_page:
-            bufxor.xor(dis.buffer, dis.buffer, self.selector.buf)
+        if not self.custom_page:
+            self.selector.update()
+            if selector_fill: bufxor.xor(display.buffer, self.selector.buf)
+        display.fill_rect(0, 0, display_w, top_gap, 0)
+        display.fill_rect(0, top_gap, out_gap, display_h, 0)
+        display.fill_rect(right_mask_x, top_gap, out_gap, display_h, 0)
         if self.others:
             for i in self.others:
                 if i.pos.generator: i.pos.update()
                 i.update()
         if check_fps:
-            dis.fill_rect(0, 0, 30, 8, 0)
-            dis.text(str(self.fps), 0, 0)
-        dis.show()
+            display.fill_rect(0, 0, 30, 8, 0)
+            display.text(str(self.fps), 0, 0)
+        display.show()
 
 class XScrollBar:
     """
@@ -430,11 +429,10 @@ class XScrollBar:
 
     def update(self):
         """更新滚动条显示"""
-        # out_gap is x pos
-        # top_gap is y pos
-        pos = self.pos
+        # x: out_gap
+        # y: top_gap
         display.fill_rect(out_gap, xscrollbar_mask_y, xscrollbar_w, xscrollbar_mask_h, 0)
-        display.fill_rect(out_gap, top_gap, pos.w, pos.h, 1)
+        display.fill_rect(out_gap, top_gap, self.pos.w, self.pos.h, 1)
 
     def update_val(self):
         """更新滚动条值"""
@@ -456,14 +454,13 @@ class YScrollBar:
 
     def update(self):
         """更新滚动条显示"""
-        # yscrollbar_x is x pos
-        # top_gap is y pos
-        pos = self.pos
+        # x: yscrollbar_x
+        # y: top_gap
 
         display.fill_rect(yscrollbar_mask_x, top_gap, yscrollbar_mask_w, yscrollbar_h, 0)
         display.line(yscrollbar_line_x, top_gap, yscrollbar_line_x, yscrollbar_line_yh, 1)
         display.line(yscrollbar_x, yscrollbar_bottom_line_y, yscrollbar_line_xw, yscrollbar_bottom_line_y, 1)
-        display.fill_rect(yscrollbar_x, top_gap, pos.w, pos.h, 1)
+        display.fill_rect(yscrollbar_x, top_gap, self.pos.w, self.pos.h, 1)
 
     # @timeit
     def update_val(self):
@@ -610,7 +607,7 @@ class IconMenu(Page):
         """初始化图标菜单"""
         super().__init__(page_type=1)
         self.scrollbar = XScrollBar()
-        self.title_label = Label(self, '', append_list=False, offset_pos=False)
+        self.title_label = Label(self, '', auto_add=False, offset_pos=False)
         self.title_label.pos.y = display_h
         self.others.append(self.title_label)
         self.others.append(self.scrollbar)
@@ -692,7 +689,7 @@ class TextDialog:
         self.text = text
         self.pos = Pos()
         # TextDialog目前仅支持显示一个Label组件
-        self.child = Label(self, text, append_list=False, offset_pos=False, load=False)
+        self.child = Label(self, text, auto_add=False, offset_pos=False, load=False)
         self.closing = False
         self.opening = False
         self.opened = False
@@ -818,7 +815,7 @@ class Label(BaseWidget):
     """
     标签组件类
     """
-    def __init__(self, parent, text=None, link=None, append_list: bool=True, offset_pos: bool=True,
+    def __init__(self, parent, text=None, link=None, auto_add: bool=True, offset_pos: bool=True,
                  always_scroll: bool=False, scroll_w: int | bool=False, try_scroll: bool=True,
                  scroll_speed: int | bool=False, load: bool=True, font: int | bool=False, size: int | bool=False):
         """
@@ -826,7 +823,7 @@ class Label(BaseWidget):
         parent(AnyWidget): 父组件
         text(str): 显示的内容
         link(callback): 单击后运行的函数
-        append_list(bool): 是否自动调用父组件的add方法 (Builtin)
+        auto_add(bool): 是否自动调用父组件的add方法 (Builtin)
         offset_pos(bool): 是否根据相机等偏移量进行坐标偏移 (Builtin)
         always_scroll(bool): 是否在未被选中时进行滚动
         scroll_w(int): 触发滚动文本的宽度阈值 (Builtin)
@@ -855,7 +852,7 @@ class Label(BaseWidget):
         
         # 在启动时加载字体
         if load: manager.load_list.append(self)
-        if append_list: parent.add(self)
+        if auto_add: parent.add(self)
 
     def add(self, widget):
         """
@@ -922,7 +919,7 @@ class Icon(BaseWidget):
     """
     图标组件类
     """
-    def __init__(self, parent, filepath=None, title='', link=None, append_list: bool=True, offset_pos: bool=True):
+    def __init__(self, parent, filepath=None, title='', link=None, auto_add: bool=True, offset_pos: bool=True):
         """
         初始化图标组件
 
@@ -931,12 +928,12 @@ class Icon(BaseWidget):
             filepath: 图片文件路径
             title: 图标标题
             link: 点击回调函数
-            append_list: 是否自动添加到父组件
+            auto_add: 是否自动添加到父组件
             offset_pos: 是否使用偏移坐标
         """
         super().__init__(parent)
         self.type = 1
-        self.pbm = upbm.PBMImg
+        self.pbm = upbm.pbm_image
         self.filepath = filepath
         self.link = link
         self.pos.h, self.pos.w = icon_size, icon_size
@@ -945,7 +942,7 @@ class Icon(BaseWidget):
         self.offset = offset_pos
         # 在启动时加载图片
         manager.load_list.append(self)
-        if append_list: parent.add(self)
+        if auto_add: parent.add(self)
 
     def init(self):
         """初始化图标，加载图片"""
@@ -1045,7 +1042,7 @@ class ListSelect(BaseWidget):
         self.flash_speed = flash_speed
         if flash_speed is False:
             self.flash_speed = widget_flash_speed
-        self.child = Label(self, text=str(self.value), append_list=False, try_scroll=False, load=False)
+        self.child = Label(self, text=str(self.value), auto_add=False, try_scroll=False, load=False)
         self.up, self.down = None, None
         self.base_x = base_x if base_x else list_max_w-list_selector_left_gap
         manager.load_list.append(self)
