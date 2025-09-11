@@ -35,4 +35,4 @@ class PBMImage:
             # 文件其余内容为图像数据
             self.img_cache[filepath] = framebuf.FrameBuffer(bytearray(f.read()), self.w, self.h, framebuf.MONO_HLSB)
             
-PBMImg = PBMImage()
+pbm_image = PBMImage()
