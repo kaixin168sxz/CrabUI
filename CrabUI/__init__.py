@@ -1,5 +1,5 @@
 """
-CrabUI v0.37
+CrabUI v0.38
 A smooth ui framework in micropython.
 
 create: 2025.7.12
@@ -15,7 +15,7 @@ astra ui @无理造物
 mono ui  @稚晖君
 wouo ui  @音游玩的人
 """
-__version__ = '0.37'
+__version__ = '0.38'
 
 from .ui import *
 
