@@ -456,11 +456,10 @@ class XScrollBar:
 
     def update(self):
         """更新滚动条显示"""
-        # out_gap is x pos
-        # top_gap is y pos
-        pos = self.pos
+        # x: out_gap
+        # y: top_gap
         display.fill_rect(out_gap, xscrollbar_mask_y, xscrollbar_w, xscrollbar_mask_h, 0)
-        display.fill_rect(out_gap, top_gap, pos.w, pos.h, 1)
+        display.fill_rect(out_gap, top_gap, self.pos.w, self.pos.h, 1)
 
     def update_val(self):
         """更新滚动条值"""
@@ -482,14 +481,13 @@ class YScrollBar:
 
     def update(self):
         """更新滚动条显示"""
-        # yscrollbar_x is x pos
-        # top_gap is y pos
-        pos = self.pos
+        # x: yscrollbar_x
+        # y: top_gap
 
         display.fill_rect(yscrollbar_mask_x, top_gap, yscrollbar_mask_w, yscrollbar_h, 0)
         display.line(yscrollbar_line_x, top_gap, yscrollbar_line_x, yscrollbar_line_yh, 1)
         display.line(yscrollbar_x, yscrollbar_bottom_line_y, yscrollbar_line_xw, yscrollbar_bottom_line_y, 1)
-        display.fill_rect(yscrollbar_x, top_gap, pos.w, pos.h, 1)
+        display.fill_rect(yscrollbar_x, top_gap, self.pos.w, self.pos.h, 1)
 
     # @timeit
     def update_val(self):
