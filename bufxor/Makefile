@@ -8,8 +8,8 @@ MOD = bufxor
 SRC = bufxor.c
 
 # Architecture to build for (x86, x64, armv7m, xtensa, xtensawin)
-# ARCH = xtensawin
-ARCH = xtensa
+# esp32(s3/c3):
+ARCH = xtensawin
 
 # Include to get the rules for compiling and linking the module
 include $(MPY_DIR)/py/dynruntime.mk
