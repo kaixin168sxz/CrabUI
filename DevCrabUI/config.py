@@ -15,10 +15,12 @@ from micropython import const
 
 # i2c display
 use_i2c = const(False)
-hardware_i2c = const(True)
+hardware_i2c = const(False)
 i2c_freq = const(1_000_000)
-display_sda = 27
-display_scl = 26
+# display_sda = 27
+# display_scl = 26
+display_sda = 8
+display_scl = 9
 
 # spi display
 use_spi = const(True)
@@ -26,7 +28,7 @@ hardware_spi = const(1)  # spi id号
 spi_freq = const(30_000_000)
 display_sck = 14   # d0/scl
 display_mosi = 13   # d1/sda
-# 4线spi屏幕不需要用的miso,所以只需要设置一个不被占用引脚
+# 4线spi屏幕不需要用的miso,所oled.py以只需要设置一个不被占用引脚
 display_miso = 12
 display_res = 17
 display_dc = 16
@@ -37,13 +39,17 @@ pin_up = 35
 pin_down = 34
 pin_yes = 39
 pin_back = 36
+# pin_up = 0
+# pin_down = 1
+# pin_yes = 2
+# pin_back = 3
 
 ##########################################
 
 # gap config
 # 间距配置
 out_gap = const(0)
-top_gap = const(0)
+top_gap = const(10)
 
 list_item_gap = const(1)
 list_selector_left_gap = const(1)
