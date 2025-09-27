@@ -100,17 +100,27 @@ class Pos:
 
     def update(self):
         """更新位置动画"""
-        # 防止动画因为帧数过高而变快
-        now = utime.ticks_ms()
-        if utime.ticks_diff(now, self.last_time) < base_ani_sleep: return
-        self.last_time = now
+        # 可以写成 `if not self.generator: break`的形式，但或许会增加性能消耗？
+        if self.generator:
+            # 防止动画因为帧数过高而变快
+            now = utime.ticks_ms()
+            if utime.ticks_diff(now, self.last_time) < base_ani_sleep: return
+            self.last_time = now
 
-        try:
-            self.x, self.y, self.w, self.h = next(self.generator)
-        except StopIteration:
-            self.generator = None
+            try:
+                self.x, self.y, self.w, self.h = next(self.generator)
+            except StopIteration:
+                self.generator = None
 
-    def centre(self, x:int=0, y:int=0):
+    def centre(self, x:int=0, y:int=0) -> tuple[int, int]:
+        """
+        获取居中坐标（支持自定义偏移量）
+        Args:
+            x: x坐标据中心的距离
+            y: y坐标据中心的距离
+        Return:
+            目标位置组件左上角所处的坐标
+        """
         return (display_w // 2 - self.w // 2) + x, (display_h // 2 - self.h // 2) + y
 
 class Selector:
@@ -161,7 +171,7 @@ class Selector:
             # 1是选择器的宽度
             self.pos.animation((pos.dx, pos.dy+xscrollbar_space+1, pos.w+icon_selector_gap*2,
                                 pos.h+icon_selector_gap*2), selector_speed, ease_func=selector_ease)
-        menu.change_selection(child)
+        if hasattr(menu, 'change_selection'): menu.change_selection(child)
         self.selected = child
         menu.selected_id = self.selected.id
         menu.scrollbar.update_val()
@@ -171,11 +181,7 @@ class Selector:
         """选择上一个项目"""
         child_id = self.selected.id
         last_id = manager.current_menu.count_children-1
-        if child_id == 0:
-            if not menu_loop: return
-            child_id = last_id
-        else:
-            child_id -= 1
+        child_id = (last_id if child_id == 0 else child_id-1) if menu_loop else child_id
 
         self.select(manager.current_menu.children[child_id])
 
@@ -183,11 +189,7 @@ class Selector:
         """选择下一个项目"""
         child_id = self.selected.id
         last_id = manager.current_menu.count_children-1
-        if child_id == last_id:
-            if not menu_loop: return
-            child_id = 0
-        else:
-            child_id += 1
+        child_id = (0 if child_id == last_id else child_id + 1) if menu_loop else child_id
 
         self.select(manager.current_menu.children[child_id])
 
@@ -199,19 +201,23 @@ class ButtonEvent:
         """初始化按钮事件处理器"""
         self.events = []
 
-    def add(self, btn_pin, link, callback_on_pressed=False):
+    def add(self, btn_pin: int, link: callable, event: int=0):
         """
         添加按钮事件
 
         Args:
             btn_pin: 按钮引脚
             link: 回调函数
-            callback_on_pressed: 是否在按下时回调
+            event: 回调事件
+        Evnet:
+            - 0 --> 当按钮松开时触发回调函数
+            - 1 --> 当按钮按下时触发回调函数
         """
-        self.events.append([Pin(btn_pin, Pin.IN, Pin.PULL_UP), False, link, callback_on_pressed])
+        self.events.append([Pin(btn_pin, Pin.IN, Pin.PULL_UP), False, link, event])
 
     def update(self):
         """更新按钮状态并处理事件"""
+        if manager.starting_up: return
         for btn_data in self.events:
             if btn_data[0].value():
                 if not btn_data[1]: continue
@@ -275,10 +281,10 @@ class Manager:
         # self.btn_back_event = ButtonEvent(pin_back, lambda: self.btn_pressed(self.back))
 
         self.btn_event = ButtonEvent()
-        self.btn_event.add(pin_up, lambda: self.btn_pressed(self.up))
-        self.btn_event.add(pin_down, lambda: self.btn_pressed(self.down))
-        self.btn_event.add(pin_yes, lambda: self.btn_pressed(self.yes))
-        self.btn_event.add(pin_back, lambda: self.btn_pressed(self.back))
+        self.btn_event.add(pin_up, self.up)
+        self.btn_event.add(pin_down, self.down)
+        self.btn_event.add(pin_yes, self.yes)
+        self.btn_event.add(pin_back, self.back)
 
         if check_fps:
             Timer(0, period=1000, callback=self.check_fps)
@@ -332,17 +338,6 @@ class Manager:
             return
         self.history.pop(-1)
         self.page(self.history[-1], record_history=False)
-
-    # @timeit
-    def btn_pressed(self, func):
-        """
-        处理按钮按下事件
-
-        Args:
-            func: 要执行的函数
-        """
-        if self.starting_up: return
-        func()
 
     # @timeit
     def check_fps(self, _timer=None):
@@ -427,7 +422,7 @@ class Manager:
     def update(self, *_args):
         """更新显示内容"""
         if not self.display_on: return
-        self.count_fps += 1
+        if check_fps: self.count_fps += 1
         self.btn_event.update()
         display.fill(0)
         self.current_menu.update()
