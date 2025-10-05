@@ -6,7 +6,7 @@ last edited: 2025.8.27
 from .config import *
 from .libs import ufont, upbm, drawer, bufxor
 import utime
-from machine import I2C, Pin, Timer, SPI, SoftI2C, SoftSPI
+from machine import Pin, Timer
 import framebuf
 from gc import collect
 
@@ -232,37 +232,16 @@ class Manager:
     """
     管理器类，负责整个应用程序的管理
     """
-    def __init__(self, driver=None, dis=None):
+    def __init__(self, driver):
         """
         初始化管理器
 
         Args:
-            driver: 显示驱动
-            dis: 显示对象
+            driver: 显示对象
         """
         global manager, display
         manager = self
-        if not (driver or dis): raise ValueError('lost display and display_driver')
-        if dis: display = dis
-        else:
-            if use_i2c:
-                # i2c display
-                if hardware_i2c:
-                    i2c = I2C(hardware_i2c, scl=Pin(display_scl), sda=Pin(display_sda), freq=i2c_freq)
-                else:
-                    i2c = SoftI2C(scl=Pin(display_scl), sda=Pin(display_sda), freq=i2c_freq)
-                display = driver.DisplayI2C(i2c, display_w, display_h)
-                del i2c
-            elif use_spi:
-                # spi display
-                if hardware_spi:
-                    spi = SPI(hardware_spi, mosi=Pin(display_mosi), miso=Pin(display_miso), sck=Pin(display_sck), baudrate=spi_freq)
-                else:
-                    spi = SoftSPI(mosi=Pin(display_mosi), miso=Pin(display_miso), sck=Pin(display_sck), baudrate=spi_freq)
-                display = driver.DisplaySPI(spi, Pin(display_dc), Pin(display_res), Pin(display_cs), display_w, display_h)
-                del spi
-            collect()
-        self.display = display
+        display = driver
         self.selector = Selector()
         self.starting_up = True
         self.load_list = []  # 在启动时会遍历列表中的元素，执行元素的init方法进行加载
@@ -274,17 +253,7 @@ class Manager:
         self.custom_page = False
         self.current_menu: "ListMenu" | "IconMenu" | "Page" | None = None
         self.icon_menu_dashline = _XDashLine()
-
-        # self.btn_up_event = ButtonEvent(pin_up, lambda: self.btn_pressed(self.up))
-        # self.btn_down_event = ButtonEvent(pin_down, lambda: self.btn_pressed(self.down))
-        # self.btn_yes_event = ButtonEvent(pin_yes, lambda: self.btn_pressed(self.yes))
-        # self.btn_back_event = ButtonEvent(pin_back, lambda: self.btn_pressed(self.back))
-
         self.btn_event = ButtonEvent()
-        self.btn_event.add(pin_up, self.up)
-        self.btn_event.add(pin_down, self.down)
-        self.btn_event.add(pin_yes, self.yes)
-        self.btn_event.add(pin_back, self.back)
 
         if check_fps:
             Timer(0, period=1000, callback=self.check_fps)

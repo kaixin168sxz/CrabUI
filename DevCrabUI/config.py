@@ -10,41 +10,42 @@ from micropython import const
 # 使用常量(const)来提高性能
 # 使用const后，值不可修改
 
-# pin config
-# 引脚配置
-
-# i2c display
-use_i2c = const(False)
-hardware_i2c = const(False)
-i2c_freq = const(1_000_000)
-# display_sda = 27
-# display_scl = 26
-display_sda = 8
-display_scl = 9
-
-# spi display
-use_spi = const(True)
-hardware_spi = const(1)  # spi id号
-spi_freq = const(30_000_000)
-display_sck = 14   # d0/scl
-display_mosi = 13   # d1/sda
-# 4线spi屏幕不需要用的miso,所oled.py以只需要设置一个不被占用引脚
-display_miso = 12
-display_res = 17
-display_dc = 16
-display_cs = 18
-
-# 按钮对应的引脚
-pin_up = 35
-pin_down = 34
-pin_yes = 39
-pin_back = 36
-# pin_up = 0
-# pin_down = 1
-# pin_yes = 2
-# pin_back = 3
-
-##########################################
+# ! 引脚配置已经费用，请在项目中定义 !
+# # pin config
+# # 引脚配置
+#
+# # i2c display
+# use_i2c = const(False)
+# hardware_i2c = const(False)
+# i2c_freq = const(1_000_000)
+# # display_sda = 27
+# # display_scl = 26
+# display_sda = 8
+# display_scl = 9
+#
+# # spi display
+# use_spi = const(True)
+# hardware_spi = const(1)  # spi id号
+# spi_freq = const(30_000_000)
+# display_sck = 14   # d0/scl
+# display_mosi = 13   # d1/sda
+# # 4线spi屏幕不需要用的miso,所oled.py以只需要设置一个不被占用引脚
+# display_miso = 12
+# display_res = 17
+# display_dc = 16
+# display_cs = 18
+#
+# # 按钮对应的引脚
+# pin_up = 35
+# pin_down = 34
+# pin_yes = 39
+# pin_back = 36
+# # pin_up = 0
+# # pin_down = 1
+# # pin_yes = 2
+# # pin_back = 3
+#
+# ##########################################
 
 # gap config
 # 间距配置
