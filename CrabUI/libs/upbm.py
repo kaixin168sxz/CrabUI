@@ -16,7 +16,7 @@ class PBMImage:
         self.img_cache = {}
         self.w = icon_size
         self.h = icon_size
-        self.image = lambda blit_func, filepath, x, y: blit_func(self.img_cache[filepath], int(x), int(y))
+        self.image = lambda blit_func, filepath, x, y: blit_func(self.img_cache[filepath], x, y)
 
     def init(self, filepath):
         """
