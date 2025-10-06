@@ -210,8 +210,8 @@ class ButtonEvent:
             link: 回调函数
             event: 回调事件
         Evnet:
-            - 0 --> 当按钮松开时触发回调函数
-            - 1 --> 当按钮按下时触发回调函数
+            - 1 --> 当按钮松开时触发回调函数
+            - 0 --> 当按钮按下时触发回调函数
         """
         self.events.append([Pin(btn_pin, Pin.IN, Pin.PULL_UP), False, link, event])
 
@@ -811,16 +811,17 @@ class Label(BaseWidget):
                  scroll_speed: int | bool=False, load: bool=True, font: int | bool=False, size: int | bool=False):
         """
         Label标签组件
-        parent(AnyWidget): 父组件
-        text(str): 显示的内容
-        link(callback): 单击后运行的函数
-        auto_add(bool): 是否自动调用父组件的add方法 (Builtin)
-        offset_pos(bool): 是否根据相机等偏移量进行坐标偏移 (Builtin)
-        always_scroll(bool): 是否在未被选中时进行滚动
-        scroll_w(int): 触发滚动文本的宽度阈值 (Builtin)
-        try_scroll(bool): 是否开启文本滚动
-        scroll_speed(int): 滚动速度(每秒偏移的像素)
-        load(int): 是否自动将self添加到manager的启动加载列表 (Builtin)
+        Args:
+            parent(AnyWidget): 父组件
+            text(str): 显示的内容
+            link(callback): 单击后运行的函数
+            auto_add(bool): 是否自动调用父组件的add方法 (Builtin)
+            offset_pos(bool): 是否根据相机等偏移量进行坐标偏移 (Builtin)
+            always_scroll(bool): 是否在未被选中时进行滚动
+            scroll_w(int): 触发滚动文本的宽度阈值 (Builtin)
+            try_scroll(bool): 是否开启文本滚动
+            scroll_speed(int): 滚动速度(每秒偏移的像素)
+            load(int): 是否自动将self添加到manager的启动加载列表 (Builtin)
         """
         super().__init__(parent)
         self.type = 0
