@@ -1,23 +1,33 @@
-import CrabUI as ui    # ui框架
-import oled   # 显示屏驱动
+import DevCrabUI as ui
+import oled
+from machine import SPI, Pin
 import gc
 from machine import freq
 
-# freq(240000000)  # 设置cpu频率
+freq(240000000)
 print(freq())
 print(gc.mem_alloc())
 
-manager = ui.Manager(oled)
+spi = SPI(1, mosi=Pin(13), miso=Pin(12), sck=Pin(14), baudrate=30_000_000)
+dis = oled.DisplaySPI(spi, Pin(16), Pin(17), Pin(18), 128, 64)
+
+manager = ui.Manager(dis)
+
+manager.btn_event.add(35, manager.up)
+manager.btn_event.add(34, manager.down)
+manager.btn_event.add(39, manager.yes)
+manager.btn_event.add(36, manager.back)
+
 root = ui.ListMenu()
 
-dis = manager.display
+# dis = manager.display
 dis.contrast(255)
 
-dia = ui.TextDialog()
+dia = ui.TextDialog('?')
 ui.item(root, f'CrabUI v{ui.__version__}', link=lambda: dia.open('nothing'))
 
-ui.item(root, '基于Micropython', link=lambda: dia.open('nothing'))
-aa = ui.item(root, '测试弹窗', link=lambda: dia.open('测试信息'))
+ui.item(root, '基于Micropython', link=lambda: dia.open('nothing'*10))
+aa = ui.item(root, '点赞投币收藏', link=lambda: dia.open('还有关注'))
 ui.CheckBox(aa)
 ui.item(root, 'CrabUI是一个流畅丝滑的ui框架，基于micropython。', link=lambda: dia.open('nothing'))
 
@@ -44,21 +54,21 @@ ui.item(page3, 'files/a.pbm')
 ui.item(page3, 'files/b.pbm')
 ui.item(page3, 'files/b.pbm', '最后一个')
 
-status = False
-def toggle_status():
-    global status
-    custom_page_label1.pos.animation((0, {False:40, True:20}[n]), only_xy=True)
-    custom_page_label2.pos.animation(({False:80, True:40}[n], 0), only_xy=True)
-    status = not status
+n = False
+def xxx():
+    global n
+    xx.pos.animation((0, {False:40, True:20}[n]), only_xy=True)
+    nn.pos.animation(({False:80, True:40}[n], 0), only_xy=True)
+    n = not n
 
-page4 = ui.Page(yes=toggle_status)
+page4 = ui.Page(yes=xxx)
 
-custom_page_label1 = ui.Label(page4, '一个自定义的页面')
-custom_page_label1.pos.dy = 20
-custom_page_label1.pos.dx = 10
+xx = ui.Label(page4, '一个自定义的页面')
+xx.pos.dy = 20
+xx.pos.dx = 10
 
-custom_page_label2 = ui.Label(page4, 'hello')
-custom_page_label2.pos.dx = 40
+nn = ui.Label(page4, 'hello')
+nn.pos.dx = 40
 
 manager.page(root)
 while True:

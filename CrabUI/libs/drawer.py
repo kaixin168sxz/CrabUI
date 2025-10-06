@@ -23,7 +23,7 @@ def round_rect(fbuf, x, y, w, h, c=1, f=0):
     line = fbuf.line
     if f:
         line(x+1, y, x+w-2, y, c)
-        fbuf.rect(x, y+1, w, h-2, c, True)
+        fbuf.fill_rect(x, y+1, w, h-2, c)
         line(x+1, y+h-1, x+w-2, y+h-1, c)
     else:
         line(x+1, y, x+w-2, y, c)
