@@ -2,6 +2,7 @@
 main file
 last edited: 2025.8.27
 """
+import time
 
 from .config import *
 from .libs import ufont, upbm, drawer, bufxor
@@ -201,7 +202,7 @@ class ButtonEvent:
         """初始化按钮事件处理器"""
         self.events = []
 
-    def add(self, btn_pin: int, link: callable, event: int=0):
+    def add(self, btn_pin: int, link: callable, event: int=0, sleep_ms: int=0, mirror: bool=False):
         """
         添加按钮事件
 
@@ -209,24 +210,34 @@ class ButtonEvent:
             btn_pin: 按钮引脚
             link: 回调函数
             event: 回调事件
+            sleep_ms: 按钮的判断间隔时间(ms)
+            mirror: 是否反转按钮状态的布尔值(如果按钮按下为true，请启用此项)
         Evnet:
-            - 1 --> 当按钮松开时触发回调函数
-            - 0 --> 当按钮按下时触发回调函数
+            (当mirror为True时反转)
+
+            - `1` - 当按钮按下时触发回调函数
+            - `0` - 当按钮松开时触发回调函数
         """
-        self.events.append([Pin(btn_pin, Pin.IN, Pin.PULL_UP), False, link, event])
+        self.events.append([Pin(btn_pin, Pin.IN, Pin.PULL_UP), False, link, event, sleep_ms, time.ticks_ms(), mirror])
 
     def update(self):
         """更新按钮状态并处理事件"""
         if manager.starting_up: return
         for btn_data in self.events:
-            if btn_data[0].value():
+            if btn_data[0].value() ^ btn_data[6]:
                 if not btn_data[1]: continue
                 btn_data[1] = False
-                if not btn_data[3]: btn_data[2]()
+                if not btn_data[3]:
+                    if time.ticks_diff(time.ticks_ms(), btn_data[5]) < btn_data[4]: continue
+                    btn_data[5] = time.ticks_ms()
+                    btn_data[2]()
             else:
                 if btn_data[1]: continue
                 btn_data[1] = True
-                if btn_data[3]: btn_data[2]()
+                if btn_data[3]:
+                    if time.ticks_diff(time.ticks_ms(), btn_data[5]) < btn_data[4]: continue
+                    btn_data[5] = time.ticks_ms()
+                    btn_data[2]()
 
 class Manager:
     """
@@ -808,7 +819,7 @@ class Label(BaseWidget):
     """
     def __init__(self, parent, text=None, link=None, auto_add: bool=True, offset_pos: bool=True,
                  always_scroll: bool=False, scroll_w: int | bool=False, try_scroll: bool=True,
-                 scroll_speed: int | bool=False, load: bool=True, font: int | bool=False, size: int | bool=False):
+                 scroll_speed: int | bool=False, load: bool=True, font: str | bool=False, size: int | bool=False):
         """
         Label标签组件
         Args:

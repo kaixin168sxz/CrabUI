@@ -1,18 +1,16 @@
 import DevCrabUI as ui
 import oled
-from machine import SPI, Pin
 import gc
-from machine import freq
+from machine import freq, SPI, Pin
 
 freq(240000000)
 print(freq())
 print(gc.mem_alloc())
 
 spi = SPI(1, mosi=Pin(13), miso=Pin(12), sck=Pin(14), baudrate=30_000_000)
-dis = oled.DisplaySPI(spi, Pin(16), Pin(17), Pin(18), 128, 64)
+dis = oled.DisplaySPI(128, 64, spi, Pin(16), Pin(17), Pin(18), 180)
 
 manager = ui.Manager(dis)
-
 manager.btn_event.add(35, manager.up)
 manager.btn_event.add(34, manager.down)
 manager.btn_event.add(39, manager.yes)
@@ -20,7 +18,6 @@ manager.btn_event.add(36, manager.back)
 
 root = ui.ListMenu()
 
-# dis = manager.display
 dis.contrast(255)
 
 dia = ui.TextDialog('?')
