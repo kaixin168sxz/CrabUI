@@ -1,5 +1,9 @@
 # 本项目已迁移至 [CrabUIv2](https://github.com/kaixin168sxz/CrabUIv2)
 
+# 本项目已迁移至 [CrabUIv2](https://github.com/kaixin168sxz/CrabUIv2)
+
+# 本项目已迁移至 [CrabUIv2](https://github.com/kaixin168sxz/CrabUIv2)
+
 # CrabUI
 
 > A smooth ui framework in micropython.
