@@ -1,8 +1,8 @@
-# 本项目已迁移至 [CrabUI-oled](https://github.com/kaixin168sxz/CrabUI-oled)
+# 本项目已迁移至 [CrabUI-oled](https://github.com/kaixin1106/CrabUI-oled)
 
-# 本项目已迁移至 [CrabUI-oled](https://github.com/kaixin168sxz/CrabUI-oled)
+# 本项目已迁移至 [CrabUI-oled](https://github.com/kaixin1106/CrabUI-oled)
 
-# 本项目已迁移至 [CrabUI-oled](https://github.com/kaixin168sxz/CrabUI-oled)
+# 本项目已迁移至 [CrabUI-oled](https://github.com/kaixin1106/CrabUI-oled)
 
 # CrabUI
 
